@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wasteland Odyssey: Last Bastion</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        wasteland: {
+                            900: '#0a0c0a',
+                            800: '#121812',
+                            700: '#1a261a',
+                            600: '#273827',
+                            500: '#3a523a',
+                            400: '#5c7a5c',
+                            accent: '#d97706', // Amber
+                            glow: '#10b981', // Emerald CRT
+                            danger: '#ef4444', // Red
+                            ice: '#38bdf8', // Frost
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['"Share Tech Mono"', '"Courier New"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts for retro terminal feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        /* CRT Scanline & Glow Effects */
+        body {
+            background-color: #080a08;
+            color: #d1d5db;
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+        }
+        .crt::after {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 999;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+        .glow-text {
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+        }
+        /* Sharper, more legible wasteland title treatment */
+        .game-title{font-family:'Share Tech Mono','Courier New',monospace;font-size:clamp(17px,1.55vw,23px);font-weight:normal;letter-spacing:.12em;line-height:1.05;color:#8af0b3;text-shadow:0 0 2px #9effc5,0 0 10px #10b98188,2px 2px 0 #071008;white-space:nowrap}
+        .game-title .title-mark{color:#e8c778;text-shadow:0 0 8px #d9770688;letter-spacing:.04em}
+        .journey-entry.combat{border-left-color:#fb665d;color:#ffc5b9;background:linear-gradient(90deg,#381b1a55,transparent)}
+        .journey-entry.skill{border-left-color:#b58af4;color:#dfccff;background:linear-gradient(90deg,#271b3b55,transparent)}
+        .journey-entry.weather{border-left-color:#60bde8;color:#c6edff;background:linear-gradient(90deg,#102b3a55,transparent)}
+        .journey-entry.travel{border-left-color:#55c99a;color:#c4f5d8;background:linear-gradient(90deg,#10342655,transparent)}
+        .journey-entry.system{border-left-color:#83917e;color:#bdc6b8}
+        .journey-entry .log-icon{display:inline-flex;align-items:center;justify-content:center;min-height:16px}
+        .journey-entry .log-time{font-variant-numeric:tabular-nums}
+        .match-target-pulse{position:fixed;z-index:101;width:22px;height:22px;border:2px solid currentColor;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;animation:targetPulse .55s ease-out forwards;filter:drop-shadow(0 0 7px currentColor)}
+        @keyframes targetPulse{0%{opacity:0;scale:.35}25%{opacity:1;scale:1.05}100%{opacity:0;scale:1.8}}
+        .match-mote{position:fixed;z-index:102;width:7px;height:7px;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 0 8px currentColor,0 0 16px currentColor;will-change:left,top,opacity}
+        .match-mote::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1px solid currentColor;opacity:.6}
+        .match-origin-ring{position:fixed;z-index:101;width:28px;height:28px;border:2px solid currentColor;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;animation:originBurst .36s ease-out forwards}
+        @keyframes originBurst{0%{opacity:0;scale:.3}35%{opacity:.9;scale:1}100%{opacity:0;scale:1.7}}
+        .weather-rule-chip{display:none;margin-top:4px;padding:4px 6px;border:1px solid #52684b;background:#101a12;font-size:10px;line-height:1.35;color:#d3e2c9}
+        .weather-rule-chip.active{display:block;border-color:#498ba5;color:#c7edff}
+
+        .glow-amber {
+            text-shadow: 0 0 8px rgba(217, 119, 6, 0.6);
+        }
+        .glow-red {
+            text-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121812;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #273827;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3a523a;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; filter: drop-shadow(0 0 10px #10b981); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 3s infinite;
+        }
+        .tile-hover:hover {
+            transform: scale(1.05);
+            transition: transform 0.1s ease;
+        }
+        .tile-selected {
+            ring: 3px solid #d97706;
+            filter: brightness(1.2);
+            transform: scale(1.08);
+        }
+
+        /* Viewport art pass: retain the original CRT/terminal identity, add depth and environmental detail. */
+        .wasteland-viewport { isolation:isolate; background:#101711; }
+        .wasteland-viewport::after { content:""; position:absolute; inset:0; z-index:5; pointer-events:none; opacity:.42;
+            background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.08) 100%),
+            repeating-linear-gradient(0deg,rgba(3,8,5,.0) 0px,rgba(3,8,5,.0) 3px,rgba(0,0,0,.22) 4px);
+            box-shadow:inset 0 0 42px rgba(0,0,0,.72); }
+        #worldCanvas { opacity:1 !important; image-rendering:pixelated; }
+        .viewport-chip { display:flex; align-items:center; gap:6px; padding:5px 8px; border:1px solid rgba(110,153,116,.5);
+            background:rgba(5,12,8,.82); color:#b9d6b7; font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+            box-shadow:0 0 12px rgba(16,185,129,.08); backdrop-filter:blur(2px); }
+        .viewport-chip .chip-icon { color:#e6b65d; font-size:13px; line-height:1; }
+        .viewport-chip strong { color:#e8c778; font-weight:normal; }
+        #sceneVisual { text-shadow:0 0 7px rgba(16,185,129,.55), 1px 2px 0 #071008; }
+        .journey-log { height:124px; min-height:124px; overflow-y:auto; display:flex; flex-direction:column; gap:5px; }
+        .journey-entry { display:grid; grid-template-columns:48px 18px 1fr; gap:6px; align-items:start; padding:4px 5px; border-left:2px solid #52664a; background:rgba(14,22,15,.55); line-height:1.35; }
+        .journey-entry .log-time { color:#87977c; font-size:10px; }
+        @media(min-width:1024px){.journey-entry{grid-template-columns:38px 16px minmax(0,1fr);font-size:10px;padding:4px}.journey-log-panel{margin-top:2px!important}}
+        .journey-entry .log-icon { font-size:12px; }
+        .journey-entry.damage { border-left-color:#ef6860; color:#ffd5c9; }
+        .journey-entry.loot { border-left-color:#e5b45c; color:#f3d99a; }
+        .journey-entry.good { border-left-color:#65c79a; color:#b8edca; }
+        .damage-float { position:absolute; z-index:20; left:57%; top:38%; color:#ff8d78; font: bold 22px monospace; text-shadow:0 2px 0 #260d0a,0 0 10px #f04438; pointer-events:none; animation:damageFloat 1.15s ease-out forwards; }
+        .damage-float.critical { color:#ffd16d; font-size:28px; }
+        @keyframes damageFloat { 0%{opacity:0;transform:translateY(12px) scale(.7)} 15%{opacity:1;transform:translateY(0) scale(1.15)} 100%{opacity:0;transform:translateY(-42px) scale(.95)} }
+        .viewport-hit { animation:viewportHit .28s ease-out; }
+        @keyframes viewportHit { 0%,100%{filter:none} 35%{filter:brightness(1.7) sepia(.35)} }
+        .enemy-card { border:1px solid rgba(135,76,65,.7); background:rgba(25,15,13,.72); padding:7px; border-radius:4px; min-width:0; }
+        .enemy-card .enemy-bar { height:7px; background:#39211f; border:1px solid #71413b; border-radius:4px; overflow:hidden; }
+        .enemy-card .enemy-fill { height:100%; background:linear-gradient(90deg,#a52e2e,#ff7865); transition:width .25s ease; }
+        .gear-chip { border:1px solid rgba(116,143,104,.65); background:rgba(10,20,12,.82); color:#d4e1c4; padding:2px 5px; font:9px monospace; letter-spacing:.04em; }
+        .meter-track{height:9px;background:#172019;border:1px solid #475747;border-radius:4px;overflow:hidden}
+        .meter-fill{height:100%;width:0%;transition:width .25s ease;background:linear-gradient(90deg,#92703c,#e8c36e);box-shadow:0 0 8px #c99a4b66}
+        #lockMeterFill{background:linear-gradient(90deg,#7138a5,#d0a0ff);box-shadow:0 0 8px #a855f766}
+        #fireMeterFill{background:linear-gradient(90deg,#c2410c,#ff9b38);box-shadow:0 0 8px #f97316aa}
+        #frostMeterFill{background:linear-gradient(90deg,#0369a1,#7dd3fc);box-shadow:0 0 8px #38bdf8aa}
+        #lightMeterFill{background:linear-gradient(90deg,#a16207,#fff1a6);box-shadow:0 0 8px #facc15aa}
+        #playerHealthTrack{height:7px;width:120px;background:#351c1c;border:1px solid #8f4141;border-radius:5px;overflow:hidden}
+        #playerHealthFill{height:100%;width:100%;background:linear-gradient(90deg,#b91c1c,#ff6b60);transition:width .25s ease}
+        .match-pop{animation:matchPop .38s ease both;box-shadow:0 0 13px #f8e49b, inset 0 0 10px #fff5b5;z-index:2}
+        @keyframes matchPop{0%{transform:scale(1);filter:brightness(1)}45%{transform:scale(1.12);filter:brightness(2)}100%{transform:scale(.72);opacity:.22}}
+        .tile-drop{animation:tileDrop .24s cubic-bezier(.2,.8,.25,1) both}
+        @keyframes tileDrop{from{transform:translateY(-14px);opacity:.45}to{transform:translateY(0);opacity:1}}
+        .tile-empty{background:rgba(0,0,0,.52)!important;border:1px dashed rgba(118,145,112,.25)!important;box-shadow:inset 0 0 12px #000!important}
+        .action-trail{position:fixed;height:3px;transform-origin:0 50%;z-index:100;pointer-events:none;border-radius:99px;opacity:0;box-shadow:0 0 9px currentColor;animation:trailFlash .48s ease-out forwards}
+        .action-trail.attack{color:#ff7968;background:linear-gradient(90deg,transparent,#ff7968,#ffd6a5)}.action-trail.lock{color:#c084fc;background:linear-gradient(90deg,transparent,#c084fc,#f3e8ff)}.action-trail.light{color:#facc15;background:linear-gradient(90deg,transparent,#facc15,#fff7ae)}
+        @keyframes trailFlash{0%{opacity:0;filter:brightness(.8)}20%{opacity:1;filter:brightness(1.8)}100%{opacity:0;filter:brightness(1);width:var(--trail-length)}}
+        .scene-weather{position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .6s}
+        .scene-weather.rain{opacity:.6;background:repeating-linear-gradient(105deg,transparent 0 13px,rgba(164,210,220,.45) 14px,transparent 15px 24px);animation:rainSlide .32s linear infinite}
+        .scene-weather.snow{opacity:.75;background-image:radial-gradient(circle,rgba(235,247,255,.85) 1px,transparent 2px),radial-gradient(circle,rgba(235,247,255,.65) 1px,transparent 2px);background-size:35px 38px,59px 61px;background-position:0 0,20px 17px;animation:snowDrift 4s linear infinite}
+        @keyframes rainSlide{to{background-position:0 24px}} @keyframes snowDrift{to{background-position:20px 38px,0 61px}}
+        .legend-toggle{cursor:pointer;color:#e8c778;border:1px solid #52684b;padding:3px 7px;background:#172019;font-size:10px}
+        #tileLegend.legend-collapsed{display:none}
+        .journey-log-panel{min-width:0}
+        @media(min-width:1024px){body{min-height:100vh}header{padding-top:7px!important;padding-bottom:7px!important}main.game-workspace{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(290px,.85fr);grid-template-areas:'world side' 'board side';align-items:start;gap:10px;padding:10px!important}main.game-workspace>div{display:contents!important}#worldPanel{grid-area:world;align-self:start;display:grid;grid-template-columns:minmax(0,1fr) 190px;grid-template-rows:auto auto auto;min-width:0}#worldPanel>.bg-wasteland-900.px-3{grid-column:1/-1}#worldPanel>.wasteland-viewport{grid-column:1;grid-row:2;height:205px!important;min-height:205px!important;padding:8px!important}#worldPanel>#locationDescription{grid-column:1;grid-row:3;min-height:0!important;padding:8px!important;font-size:11px!important}#worldPanel>.p-3.bg-wasteland-900.flex.flex-col{grid-column:2;grid-row:2/4;padding:8px!important;justify-content:center;border-left:1px solid #394b39}#worldPanel .grid.grid-cols-3{grid-template-columns:1fr!important;gap:5px!important}#worldPanel .grid.grid-cols-3 button{padding:6px 4px!important;font-size:10px!important}#encounterPanel{grid-area:side;align-self:start;max-height:calc(100vh - 100px);overflow:auto;padding:9px!important;gap:7px!important}#boardPanel{grid-area:board;min-width:0;padding:8px!important}#matchBoard{grid-template-columns:repeat(7,minmax(0,1fr));width:min(100%,430px);gap:4px;padding:7px}#matchBoard>div{font-size:clamp(14px,1.35vw,20px);min-width:0;border-radius:4px}#boardPanel .flex-1.flex.items-center.justify-center.py-2{padding-top:2px!important;padding-bottom:2px!important}#tileLegend{font-size:10px;gap:5px;margin-bottom:6px!important}#actionLog{height:200px;min-height:150px}#journeyLogPanel{margin-top:0!important}#skillPanel .skill-meter{padding:5px}#skillPanel .skill-meter button{font-size:9px}#skillPanel .meter-track{height:7px}}
+        @media(min-width:1024px) and (max-height:850px){#worldPanel>.wasteland-viewport{height:165px!important;min-height:165px!important}#matchBoard{width:min(100%,350px);gap:3px;padding:5px}#matchBoard>div{font-size:clamp(13px,1.2vw,18px)}#boardPanel{padding:6px!important}#tileLegend{padding:4px 6px!important;margin-bottom:4px!important}#actionLog{height:135px;min-height:100px}}
+        @media(max-width:1023px){#matchBoard{grid-template-columns:repeat(7,minmax(0,1fr));width:min(100%,480px);gap:4px;padding:7px}#matchBoard>div{font-size:clamp(15px,3vw,23px)}#worldPanel>.wasteland-viewport{height:220px!important}#actionLog{height:150px}}
+        .skill-meter{background:rgba(9,16,11,.72);border:1px solid #394b39;padding:7px;border-radius:3px}
+        .skill-meter button{border:1px solid #52684b;padding:2px 5px;color:#d8e5c9;background:#202e22;font-size:10px}
+        .skill-meter button:disabled{opacity:.35}
+        .world-travel{animation:travelLurch .48s ease-out}
+        @keyframes travelLurch{0%{transform:translateX(0) scale(1)}25%{transform:translateX(-10px) scale(1.025)}65%{transform:translateX(8px) scale(1.015)}100%{transform:translateX(0) scale(1)}}
+        @media(min-width:1024px){main.game-workspace{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(300px,.88fr);grid-template-areas:'world side' 'board side';align-items:start}main.game-workspace>div{display:contents!important}#worldPanel{grid-area:world}#encounterPanel{grid-area:side;align-self:start}#boardPanel{grid-area:board;min-width:0}#matchBoard{grid-template-columns:repeat(7,minmax(0,1fr));width:min(100%,520px);gap:5px;padding:9px}#matchBoard>div{font-size:clamp(16px,2vw,25px);min-width:0}#boardPanel{padding:10px}#tileLegend{font-size:10px;gap:6px}}
+        @media(max-width:1023px){#matchBoard{grid-template-columns:repeat(7,minmax(0,1fr));width:min(100%,520px);gap:5px;padding:8px}#matchBoard>div{font-size:clamp(17px,3vw,25px)}}
+        .viewport-signal { width:5px;height:5px;border-radius:50%;background:#6ed5a0;box-shadow:0 0 7px #6ed5a0;display:inline-block; }
+
+    </style>
+</head>
+<body class="crt min-h-screen flex flex-col select-none">
+
+    <!-- Top Header Navigation & Status Bar -->
+    <header class="bg-wasteland-800 border-b border-wasteland-600 px-4 py-3 flex flex-wrap justify-between items-center z-20 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded bg-wasteland-700 border border-wasteland-500 flex items-center justify-center text-wasteland-glow font-bold text-lg">☢</div>
+            <div>
+                <h1 class="game-title glow-text">WASTELAND <span class="title-mark">//</span> ODYSSEY</h1>
+                <p class="text-xs text-wasteland-400">LAST BASTION v1.0.4 <span id="gameModeBadge" class="ml-2 px-1.5 py-0.5 rounded bg-wasteland-600 text-amber-400 text-[10px]">STORY MODE</span></p>
+            </div>
+        </div>
+
+        <!-- Quick Stats HUD -->
+        <div class="flex items-center space-x-4 my-1 md:my-0 text-xs sm:text-sm bg-wasteland-900 px-3 py-1.5 rounded border border-wasteland-700">
+            <div class="flex items-center space-x-1" title="Player Health">
+                <span class="text-red-400 font-bold">HP:</span>
+                <span id="statHp" class="text-white font-mono">100/100</span>
+                <div id="playerHealthTrack" title="Player health"><div id="playerHealthFill"></div></div>
+            </div>
+            <div class="text-wasteland-600">|</div>
+            <div class="flex items-center space-x-1" title="Radiation Exposure">
+                <span class="text-emerald-400 font-bold">RAD:</span>
+                <span id="statRad" class="text-emerald-300 font-mono">0 rad</span>
+            </div>
+            <div class="text-wasteland-600">|</div>
+            <div class="flex items-center space-x-1" title="Bottle Caps (Currency)">
+                <span class="text-amber-400 font-bold">CAPS:</span>
+                <span id="statCaps" class="text-amber-300 font-mono">50</span>
+            </div>
+            <div class="text-wasteland-600">|</div>
+            <div class="flex items-center space-x-1" title="Inventory Weight">
+                <span class="text-blue-400 font-bold">WT:</span>
+                <span id="statWeight" class="text-blue-300 font-mono">8/30kg</span>
+            </div>
+        </div>
+
+        <!-- Action Buttons & Audio Toggle -->
+        <div class="flex items-center space-x-2">
+            <button onclick="openModal('inventoryModal')" class="px-3 py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-semibold text-white transition flex items-center space-x-1 shadow">
+                <span>🎒</span> <span class="hidden sm:inline">Inventory</span>
+            </button>
+            <button onclick="openModal('questModal')" class="px-3 py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-semibold text-amber-400 transition flex items-center space-x-1 shadow">
+                <span>📜</span> <span class="hidden sm:inline">Quest Log</span>
+            </button>
+            <button onclick="toggleSound()" id="soundToggleBtn" class="px-2.5 py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs text-white transition" title="Toggle Sound">
+                🔊
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Workspace -->
+    <main class="game-workspace flex-1 flex flex-col lg:flex-row p-3 gap-3 max-w-[1600px] w-full mx-auto">
+
+        <!-- Left Column: World Viewport & Navigation / Encounter Panel -->
+        <div class="lg:w-5/12 flex flex-col gap-3">
+            
+            <!-- World Viewport Window -->
+            <div id="worldPanel" class="bg-wasteland-800 border-2 border-wasteland-600 rounded-lg overflow-hidden flex flex-col shadow-2xl relative">
+                <!-- Viewport Header -->
+                <div class="bg-wasteland-900 px-3 py-2 border-b border-wasteland-700 flex justify-between items-center text-xs">
+                    <span class="text-wasteland-glow font-bold tracking-wide flex items-center space-x-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-wasteland-glow animate-ping mr-1"></span>
+                        <span id="locationTitle">OUTPOST: THE RUINED HIGHWAY</span>
+                    </span>
+                    <span id="dayCounter" class="text-amber-400 font-mono">DAY 1 - 14:00</span>
+                </div>
+
+                <!-- Viewport Canvas / ASCII Retro Scene -->
+                <div class="relative h-64 sm:h-72 bg-wasteland-900 flex flex-col items-center justify-center p-4 overflow-hidden border-b border-wasteland-700 wasteland-viewport">
+                    <!-- Background Retro Scene Animation Canvas -->
+                    <canvas id="worldCanvas" class="absolute inset-0 w-full h-full opacity-75"></canvas>
+                    
+                    <div id="sceneWeather" class="scene-weather" aria-hidden="true"></div>
+                    <!-- Overlay Scene Information & Encounter Badge -->
+                    <div id="encounterBanner" class="absolute top-3 left-3 bg-wasteland-900/90 border border-wasteland-500 px-3 py-1 rounded text-xs text-amber-300 font-mono z-10 shadow">
+                        <span class="viewport-signal mr-2"></span>STATUS: SEARCHING WASTELAND
+                    </div>
+                    <div class="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5 pointer-events-none">
+                        <div class="viewport-chip"><span class="chip-icon">🧭</span><span id="viewportDistance">ROUTE <strong>00.0 KM</strong></span></div>
+                        <div class="viewport-chip"><span class="chip-icon" id="viewportContextIcon">⚔</span><span id="viewportContext">HOSTILE CONTACT</span></div>
+                    </div>
+                    <div class="absolute bottom-2 left-3 z-10 pointer-events-none text-[10px] tracking-widest text-emerald-200/80" id="viewportCompass">▲ N · SIGNAL LOST</div>
+                    <div class="absolute bottom-2 right-3 z-10 flex flex-wrap justify-end gap-1 max-w-[52%] pointer-events-none" id="gearReadout"></div>
+
+                    <!-- Center ASCII / Visual Representation -->
+                    <div id="sceneVisual" class="z-10 text-center pointer-events-none drop-shadow-[0_0_10px_rgba(16,185,129,0.5)] font-mono text-xs sm:text-sm whitespace-pre text-wasteland-glow leading-tight">
+                        <!-- Rendered via JS -->
+                    </div>
+
+                    <!-- Radiation Storm Warning Overlay -->
+                    <div id="stormWarning" class="absolute bottom-2 right-2 bg-red-950/80 border border-red-500 px-2.5 py-1 rounded text-[11px] text-red-300 font-bold hidden animate-pulse">
+                        ⚠️ RAD STORM ACTIVE (+5 Rad/min)
+                    </div>
+                </div>
+
+                <!-- Location Description & Context -->
+                <div class="p-3 bg-wasteland-800/90 text-xs sm:text-sm text-wasteland-300 border-b border-wasteland-700 min-h-[70px]" id="locationDescription">
+                    You stand upon cracked asphalt surrounded by skeleton frames of pre-war vehicles and decaying concrete towers. The wind howls with toxic dust.
+                </div>
+
+                <!-- Directional & Action Controls -->
+                <div class="p-3 bg-wasteland-900 flex flex-col gap-2">
+                    <div class="text-[11px] text-wasteland-400 font-bold tracking-wider uppercase flex justify-between">
+                        <span>Navigation & Actions</span>
+                        <span id="actionBudget" class="text-amber-400">Action Budget: 3/3</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="turnWorld(-1)" class="py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-white transition shadow flex items-center justify-center space-x-1">
+                            <span>◀</span> <span>Turn Left</span>
+                        </button>
+                        <button onclick="moveForward()" id="btnMoveForward" class="py-2 bg-emerald-800 hover:bg-emerald-700 border border-emerald-500 rounded text-xs font-bold text-white transition shadow flex items-center justify-center space-x-1">
+                            <span>▲</span> <span>Move Forward</span>
+                        </button>
+                        <button onclick="turnWorld(1)" class="py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-white transition shadow flex items-center justify-center space-x-1">
+                            <span>Turn Right</span> <span>▶</span>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mt-1">
+                        <button onclick="triggerInvestigate()" id="btnInvestigate" class="py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-semibold text-amber-300 transition shadow">
+                            🔍 Investigate
+                        </button>
+                        <button onclick="triggerRest()" id="btnRest" class="py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-semibold text-emerald-300 transition shadow">
+                            🏕️ Camp / Rest
+                        </button>
+                        <button onclick="openModal('shopModal')" id="btnShop" class="py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-semibold text-blue-300 transition shadow">
+                            🤝 Trader NPC
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Encounter / Combat / Safe Details Panel -->
+            <div id="encounterPanel" class="bg-wasteland-800 border-2 border-wasteland-600 rounded-lg p-3 flex flex-col gap-2 shadow-xl">
+                <div class="flex justify-between items-center border-b border-wasteland-700 pb-1.5">
+                    <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wide" id="encounterPanelTitle">ENCOUNTER: SCAVENGER RUN</h3>
+                    <span id="encounterStatus" class="text-[11px] px-2 py-0.5 rounded bg-wasteland-700 text-wasteland-glow font-mono">READY</span>
+                </div>
+
+                <div id="encounterDetails" class="text-xs text-wasteland-300 space-y-2">
+                    <p>Match tiles on the right board to perform actions. Combat matches damage foes, shield tiles block attacks, healing restores HP, and lockpicks open containers.</p>
+                </div>
+                <div class="bg-wasteland-900 border border-wasteland-700 p-2 rounded" id="nextEventPanel">
+                    <div class="text-[10px] tracking-widest text-amber-300 font-bold mb-1">📡 AHEAD ON THE ROUTE</div>
+                    <div class="text-xs text-white" id="nextEventTitle">ABANDONED GAS STATION</div>
+                    <div class="text-[10px] text-wasteland-400 mt-1" id="nextEventHint">A locked container may reward key matches.</div>
+                    <div id="weatherRuleChip" class="weather-rule-chip" role="status"></div>
+                </div>
+                <div class="bg-wasteland-900 border border-wasteland-700 p-2 rounded flex flex-col gap-2" id="skillPanel">
+                    <div class="flex justify-between items-center"><span class="text-[10px] tracking-widest text-amber-300 font-bold">🧬 SURVIVOR BUILD</span><span class="text-[9px] text-wasteland-500">TRADE-OFFS</span></div>
+                    <div class="skill-meter"><div class="flex justify-between text-[10px] mb-1"><span>🔐 Lockpicking <span id="lockSkillRank">Lv 1</span></span><span id="lockMeterLabel">0%</span></div><div class="meter-track"><div class="meter-fill" id="lockMeterFill"></div></div><div class="flex justify-between items-center mt-1"><span class="text-[9px] text-wasteland-500">Key matches charge the lock</span><div class="flex gap-1"><button onclick="setSkill('lockpick',1)">Lv1</button><button onclick="setSkill('lockpick',2)">Lv2</button><button onclick="setSkill('lockpick',3)">Expert</button></div></div></div>
+                    <div class="skill-meter"><div class="flex justify-between text-[10px] mb-1"><span>🔥 Fire charge</span><span id="fireMeterLabel">0%</span></div><div class="meter-track"><div class="meter-fill" id="fireMeterFill"></div></div><button class="mt-1" id="useFireBtn" onclick="useElement('fire')" disabled>Use Fire Burst</button></div>
+                    <div class="skill-meter"><div class="flex justify-between text-[10px] mb-1"><span>❄️ Frost charge</span><span id="frostMeterLabel">0%</span></div><div class="meter-track"><div class="meter-fill" id="frostMeterFill"></div></div><button class="mt-1" id="useFrostBtn" onclick="useElement('frost')" disabled>Use Frost Strike</button></div>
+                    <div class="skill-meter"><div class="flex justify-between text-[10px] mb-1"><span>🔦 Light / salvage</span><span id="lightMeterLabel">0%</span></div><div class="meter-track"><div class="meter-fill" id="lightMeterFill"></div></div><div class="text-[9px] text-wasteland-500 mt-1">Build with scrap matches; improves cache loot.</div></div>
+                </div>
+
+                <!-- Scalable enemy roster: one row per active foe, compact when the group grows -->
+                <div id="enemyRoster" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1"></div>
+                <!-- Enemy or Container Progress Bar -->
+                <div id="targetProgressContainer" class="hidden flex flex-col gap-1 mt-1 bg-wasteland-900 p-2 rounded border border-wasteland-700">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span id="targetNameLabel" class="text-red-400">RAIDER SCOUT</span>
+                        <span id="targetValueLabel" class="text-white font-mono">HP: 50/50</span>
+                    </div>
+                    <div class="w-full bg-wasteland-700 h-2.5 rounded-full overflow-hidden border border-wasteland-600">
+                        <div id="targetProgressBar" class="bg-red-500 h-full transition-all duration-300" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Match-3 Board & Action Resolution Engine -->
+        <div class="lg:w-7/12 flex flex-col gap-3">
+            
+            <!-- Match-3 Board Container -->
+            <div id="boardPanel" class="bg-wasteland-800 border-2 border-wasteland-600 rounded-lg p-3 flex flex-col shadow-2xl relative flex-1">
+                <!-- Board Header / Legend -->
+                <div class="flex flex-wrap justify-between items-center mb-2 pb-2 border-b border-wasteland-700 gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-bold text-wasteland-glow">MATCH-3 SURVIVAL GRID</span>
+                        <span id="boardContextBadge" class="text-[10px] px-2 py-0.5 rounded bg-wasteland-700 text-amber-300 font-mono">COMBAT POOL</span>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs">
+                        <span id="streakCounter" class="text-amber-400 font-bold hidden">🔥 Streak: x1</span>
+                        <button onclick="reshuffleBoard()" class="px-2.5 py-1 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs text-wasteland-300 transition">
+                            🔀 Reshuffle
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tile Pool Legend Bar -->
+                <button class="legend-toggle mb-2 self-start" id="legendToggle" onclick="toggleTileLegend()" aria-expanded="true">▾ TILE LEGEND / ICON KEY</button>
+                <div id="tileLegend" class="flex flex-wrap gap-2 mb-3 text-[11px] bg-wasteland-900 px-2.5 py-1.5 rounded border border-wasteland-700 items-center justify-between">
+                    <!-- Populated dynamically based on encounter context -->
+                </div>
+
+                <!-- The 7x7 Match-3 Grid -->
+                <div class="flex-1 flex items-center justify-center py-2">
+                    <div id="matchBoard" class="grid grid-cols-7 gap-1.5 sm:gap-2 bg-wasteland-900 p-3 rounded-lg border-2 border-wasteland-700 shadow-inner max-w-full aspect-square">
+                        <!-- Tiles generated via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Journey Log: relocated into the right-hand encounter sidebar on desktop -->
+                <div id="journeyLogPanel" class="journey-log-panel mt-2 bg-wasteland-900 rounded p-2 border border-wasteland-700 font-mono">
+                    <div class="flex justify-between items-center mb-1.5 border-b border-wasteland-800 pb-1">
+                        <span class="text-[11px] tracking-widest font-bold text-amber-300">📜 JOURNEY LOG</span>
+                        <span class="text-[9px] text-wasteland-500">FIELD RECORD / LIVE</span>
+                    </div>
+                    <div class="journey-log text-[11px]" id="actionLog">
+                        <div class="journey-entry"><span class="log-time">14:00</span><span>›</span><span>Match tiles to act. Combat, discoveries and travel are recorded here.</span></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modals -->
+
+    <!-- Inventory Modal -->
+    <div id="inventoryModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wasteland-800 border-2 border-wasteland-500 rounded-lg max-w-2xl w-full p-4 flex flex-col shadow-2xl max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-wasteland-600 pb-2 mb-3">
+                <h2 class="text-base font-bold text-wasteland-glow flex items-center space-x-2">
+                    <span>🎒</span> <span>SURVIVOR INVENTORY & EQUIPMENT</span>
+                </h2>
+                <button onclick="closeModal('inventoryModal')" class="text-wasteland-400 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto flex-1 pr-1">
+                <!-- Equipped Gear Section -->
+                <div class="bg-wasteland-900 p-3 rounded border border-wasteland-700 flex flex-col gap-2">
+                    <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wide border-b border-wasteland-700 pb-1">Equipped Gear</h3>
+                    <div id="equippedList" class="flex flex-col gap-2 text-xs">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Inventory Items List -->
+                <div class="bg-wasteland-900 p-3 rounded border border-wasteland-700 flex flex-col gap-2">
+                    <div class="flex justify-between items-center border-b border-wasteland-700 pb-1">
+                        <h3 class="text-xs font-bold text-wasteland-glow uppercase tracking-wide">Backpack Items</h3>
+                        <span id="invCapacity" class="text-xs text-wasteland-400 font-mono">8 / 30 kg</span>
+                    </div>
+                    <div id="inventoryList" class="flex flex-col gap-2 text-xs overflow-y-auto max-h-60">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-2 border-t border-wasteland-600 flex justify-end">
+                <button onclick="closeModal('inventoryModal')" class="px-4 py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-white transition">
+                    Close Inventory
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quest Log Modal -->
+    <div id="questModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wasteland-800 border-2 border-wasteland-500 rounded-lg max-w-xl w-full p-4 flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center border-b border-wasteland-600 pb-2 mb-3">
+                <h2 class="text-base font-bold text-amber-400 flex items-center space-x-2">
+                    <span>📜</span> <span>QUEST LOG: THE RELAY BEACON</span>
+                </h2>
+                <button onclick="closeModal('questModal')" class="text-wasteland-400 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+            
+            <div class="space-y-3 text-xs sm:text-sm text-wasteland-300 max-h-[60vh] overflow-y-auto" id="questContent">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="mt-4 pt-2 border-t border-wasteland-600 flex justify-between items-center">
+                <span id="questStatusSummary" class="text-xs text-amber-300 font-mono">Objective: Repair Radio Beacon (3/5 parts)</span>
+                <button onclick="closeModal('questModal')" class="px-4 py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-white transition">
+                    Back to Journey
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trader Shop Modal -->
+    <div id="shopModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wasteland-800 border-2 border-wasteland-500 rounded-lg max-w-2xl w-full p-4 flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center border-b border-wasteland-600 pb-2 mb-3">
+                <h2 class="text-base font-bold text-blue-400 flex items-center space-x-2">
+                    <span>🤝</span> <span>TRADER CARAVAN (BOTTLE CAPS: <span id="shopCaps">50</span>)</span>
+                </h2>
+                <button onclick="closeModal('shopModal')" class="text-wasteland-400 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto" id="shopItemsList">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="mt-4 pt-2 border-t border-wasteland-600 flex justify-end">
+                <button onclick="closeModal('shopModal')" class="px-4 py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-white transition">
+                    Leave Trader
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="gameOverModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wasteland-800 border-2 border-red-500 rounded-lg max-w-md w-full p-6 flex flex-col items-center text-center shadow-2xl">
+            <div id="gameOverIcon" class="text-5xl mb-3 animate-bounce">💀</div>
+            <h2 id="gameOverTitle" class="text-xl font-bold text-red-400 tracking-wider mb-2">SURVIVOR PERISHED</h2>
+            <p id="gameOverDesc" class="text-xs sm:text-sm text-wasteland-300 mb-6 font-mono">You succumbed to the harsh hazards and raiders of the wasteland. Your journey ends here.</p>
+            <div id="runSummaryStats" class="w-full bg-wasteland-900 p-3 rounded border border-wasteland-700 text-xs text-left mb-6 font-mono space-y-1">
+                <!-- Stats -->
+            </div>
+            <button onclick="restartGame()" class="w-full py-3 bg-red-800 hover:bg-red-700 border border-red-500 rounded text-sm font-bold text-white transition shadow-lg">
+                🔄 START NEW WASTELAND RUN
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Toast Notification -->
+    <div id="toastNotification" class="fixed bottom-6 right-6 bg-wasteland-900 border-2 border-wasteland-glow text-wasteland-glow px-4 py-2.5 rounded shadow-2xl text-xs font-mono z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-2">
+        <span id="toastIcon">✨</span>
+        <span id="toastText">Action completed successfully.</span>
+    </div>
+
+    <!-- JavaScript Game Engine -->
+    <script>
+        /* ==========================================================
+           1. WEB AUDIO API SYNTHESIZER (Sound Effects)
+           ========================================================== */
+        let soundEnabled = true;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(frequency, type, duration, gainValue = 0.1) {
+            if (!soundEnabled) return;
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = frequency;
+                gain.gain.setValueAtTime(gainValue, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.error("Audio error:", e);
+            }
+        }
+
+        const soundFX = {
+            swap: () => playTone(300, 'triangle', 0.08, 0.05),
+            match: () => { playTone(523.25, 'sine', 0.15, 0.1); setTimeout(() => playTone(659.25, 'sine', 0.15, 0.1), 80); },
+            cascade: () => { playTone(783.99, 'square', 0.2, 0.08); },
+            attack: () => { playTone(120, 'sawtooth', 0.25, 0.15); },
+            shield: () => { playTone(440, 'sine', 0.2, 0.1); },
+            heal: () => { playTone(587.33, 'triangle', 0.3, 0.12); },
+            lockpick: () => { playTone(880, 'sine', 0.1, 0.08); },
+            coin: () => { playTone(987.77, 'sine', 0.15, 0.1); setTimeout(() => playTone(1318.51, 'sine', 0.2, 0.1), 100); },
+            click: () => { playTone(200, 'sine', 0.05, 0.03); },
+            win: () => { playTone(523.25, 'triangle', 0.4, 0.15); setTimeout(() => playTone(659.25, 'triangle', 0.4, 0.15), 200); setTimeout(() => playTone(783.99, 'triangle', 0.6, 0.2), 400); },
+            gameOver: () => { playTone(150, 'sawtooth', 0.6, 0.2); setTimeout(() => playTone(100, 'sawtooth', 0.8, 0.25), 300); }
+        };
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundToggleBtn').textContent = soundEnabled ? '🔊' : '🔇';
+            showToast(soundEnabled ? "Audio enabled" : "Audio muted", soundEnabled ? "🔊" : "🔇");
+        }
+
+        /* ==========================================================
+           2. GAME STATE & DEFINITIONS
+           ========================================================== */
+        const BOARD_SIZE = 7;
+        
+        let gameState = {
+            hp: 100,
+            maxHp: 100,
+            rads: 0,
+            caps: 75,
+            weight: 8,
+            maxWeight: 35,
+            day: 1,
+            hour: 14,
+            actionBudget: 3,
+            maxActionBudget: 3,
+            locationIndex: 0,
+            direction: 0, // 0: North, 1: East, 2: South, 3: West
+            currentEncounterType: 'combat', // combat, safe, cache, trader, camp, hazard
+            encounterState: {
+                active: true,
+                title: "RAIDER SCOUT AMBUSH",
+                description: "A hostile scavenger scout blocks the road with a crude roadblock.",
+                targetName: "RAIDER SCOUT",
+                targetHp: 50,
+                targetMaxHp: 50,
+                targetDef: 5,
+                rewardCaps: 25,
+                rewardScrap: 10,
+                lockpickProgress: 0,
+                lockpickRequired: 30
+            },
+            skills: { lockpick: 1, lockpickCharge: 0, fire: 0, frost: 0, light: 0 },
+            travelSteps: 0,
+            quest: {
+                title: "The Relay Beacon",
+                step: 3,
+                maxStep: 5,
+                objectties: [
+                    "Scavenge pre-war highway debris",
+                    "Survive the poisoned raider outpost",
+                    "Repair the Radio Transmitter (3/5 parts)",
+                    "Cross the Radiation Storm Zone",
+                    "Transmit final rescue signal"
+                ]
+            },
+            equipped: {
+                weapon: { id: 'machete', name: 'Rust Machete', type: 'weapon', atk: 8, element: 'none', icon: '🗡️' },
+                armor: { id: 'kevlar', name: 'Kevlar Vest', type: 'armor', def: 6, icon: '🛡️' },
+                backpack: { id: 'ruck', name: 'Tactical Rucksack', type: 'backpack', maxWeight: 35, icon: '🎒', color: '#5c6946' },
+                head: { id: 'cap', name: 'Dust Cap', type: 'gear', slot: 'head', icon: '🧢', color: '#596548' },
+                top: { id: 'fieldjacket', name: 'Worn Field Jacket', type: 'gear', slot: 'top', icon: '🧥', color: '#465744' },
+                pants: { id: 'workpants', name: 'Work Trousers', type: 'gear', slot: 'pants', icon: '👖', color: '#343e32' },
+                gloves: { id: 'workgloves', name: 'Work Gloves', type: 'gear', slot: 'gloves', icon: '🧤', color: '#65523a' },
+                shoes: { id: 'boots', name: 'Wasteland Boots', type: 'gear', slot: 'shoes', icon: '🥾', color: '#3a3025' },
+                helmet: null
+            },
+            inventory: [
+                { id: 'stimpak', name: 'Stimpak', type: 'consumable', value: 40, weight: 1, count: 3, icon: '💉', desc: 'Restores 40 HP' },
+                { id: 'radaway', name: 'Rad-Away', type: 'consumable', value: 30, weight: 1, count: 2, icon: '🧪', desc: 'Removes 30 Radiation' },
+                { id: 'cannedfood', name: 'Canned Beans', type: 'consumable', value: 25, weight: 1, count: 4, icon: '🥫', desc: 'Restores hunger & health' },
+                { id: 'lockpick', name: 'Lockpick Set', type: 'tool', weight: 0.5, count: 5, icon: '🔓', desc: 'Used for opening safes' },
+                { id: 'scrap', name: 'Metal Scrap', type: 'material', weight: 2, count: 8, icon: '⚙️', desc: 'Crafting & trading resource' },
+                { id: 'radio_part', name: 'Radio Vacuum Tube', type: 'quest', weight: 1, count: 3, icon: '📻', desc: 'Needed for beacon repair' },
+                { id: 'salvage_hood', name: 'Salvaged Raider Hood', type: 'gear', slot: 'head', weight: 1, count: 1, icon: '🪖', color: '#6b4a36', desc: 'Gear · Head slot · rugged brown hood' },
+                { id: 'patched_trousers', name: 'Patched Reinforced Trousers', type: 'gear', slot: 'pants', weight: 2, count: 1, icon: '👖', color: '#4b5140', desc: 'Gear · Pants slot · reinforced fabric' }
+            ]
+        };
+
+        // Tile Definitions for Match-3 Board
+        const TILE_TYPES = {
+            sword: { id: 'sword', name: 'Blade', icon: '🗡️', color: 'bg-red-950/80 border-red-600 text-red-400', category: 'weapon' },
+            fire: { id: 'fire', name: 'Fire', icon: '🔥', color: 'bg-orange-950/80 border-orange-600 text-orange-400', category: 'elemental' },
+            frost: { id: 'frost', name: 'Frost', icon: '❄️', color: 'bg-sky-950/80 border-sky-600 text-sky-400', category: 'elemental' },
+            shield: { id: 'shield', name: 'Shield', icon: '🛡️', color: 'bg-blue-950/80 border-blue-600 text-blue-400', category: 'defense' },
+            heal: { id: 'heal', name: 'Heal', icon: '➕', color: 'bg-emerald-950/80 border-emerald-600 text-emerald-400', category: 'healing' },
+            food: { id: 'food', name: 'Supplies', icon: '🥫', color: 'bg-yellow-950/80 border-yellow-600 text-yellow-400', category: 'supplies' },
+            scrap: { id: 'scrap', name: 'Scrap', icon: '⚙️', color: 'bg-stone-800/80 border-stone-600 text-stone-300', category: 'scavenging' },
+            caps: { id: 'caps', name: 'Caps', icon: '🪙', color: 'bg-amber-950/80 border-amber-500 text-amber-400', category: 'currency' },
+            lockpick: { id: 'lockpick', name: 'Lockpick', icon: '🗝️', color: 'bg-purple-950/80 border-purple-600 text-purple-400', category: 'tools' }
+        };
+
+        // Contextual Tile Pools for different encounter types
+        const TILE_POOLS = {
+            combat: ['sword', 'fire', 'frost', 'shield', 'heal', 'food', 'caps', 'scrap', 'lockpick'],
+            safe: ['lockpick', 'lockpick', 'scrap', 'caps', 'food'],
+            cache: ['food', 'scrap', 'caps', 'heal', 'lockpick', 'lockpick'],
+            trader: ['caps', 'scrap', 'food', 'heal', 'lockpick'],
+            camp: ['food', 'heal', 'shield', 'scrap', 'caps'],
+            hazard: ['heal', 'shield', 'food', 'scrap', 'caps']
+        };
+
+        let board = [];
+        let currentWeather = 'clear';
+        let selectedTile = null;
+        let isAnimating = false;
+
+        // World Nodes (Story / Journey sequence)
+        const WORLD_LOCATIONS = [
+            { title: "THE RUINED HIGHWAY", type: "combat", desc: "Cracked asphalt strewn with skeletons and rusted vehicle frames. Raiders lurk nearby.", enemy: { name: "RAIDER SCOUT", hp: 45, maxHp: 45, def: 4, caps: 20 } },
+            { title: "ABANDONED GAS STATION", type: "cache", desc: "A derelict fueling stop with rusted pumps and a partially buried supply crate.", container: { name: "FUEL STATION SAFE", req: 25, reward: "Radio Vacuum Tube #1" } },
+            { title: "TOXIC RAVINE & TRADER", type: "trader", desc: "A nomadic caravan trader rests under a tarp, offering gear and supplies for bottle caps.", trader: true },
+            { title: "RAIDER OUTPOST BLOCKADE", type: "combat", desc: "A fortified barricade guarded by heavily armed raider thugs blocking the pass.", enemy: { name: "RAIDER BRUTE", hp: 80, maxHp: 80, def: 8, caps: 45 } },
+            { title: "SEALED PRE-WAR VAULT", type: "safe", desc: "An underground military fallout vault door with an intricate electronic lock mechanism.", container: { name: "VAULT SUPPLY VAULT", req: 40, reward: "Radio Vacuum Tube #2" } },
+            { title: "RADIATION STORM ZONE", type: "hazard", desc: "A furious gale of radioactive fallout sweeps across the jagged canyon.", hazard: true },
+            { title: "RADIO BEACON TOWER", type: "combat", desc: "The final summit. A towering antenna mast occupied by the Raider Warlord.", enemy: { name: "RAIDER WARLORD", hp: 130, maxHp: 130, def: 12, caps: 100 } }
+        ];
+
+        /* ==========================================================
+           3. MATCH-3 BOARD ENGINE
+           ========================================================== */
+        function initBoard() {
+            const pool = TILE_POOLS[gameState.currentEncounterType] || TILE_POOLS.combat;
+            board = [];
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                let row = [];
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    let tileType;
+                    // Ensure no initial 3-in-a-row on startup
+                    do {
+                        tileType = pool[Math.floor(Math.random() * pool.length)];
+                    } while (
+                        (c >= 2 && row[c-1] === tileType && row[c-2] === tileType) ||
+                        (r >= 2 && board[r-1][c] === tileType && board[r-2][c] === tileType)
+                    );
+                    row.push(tileType);
+                }
+                board.push(row);
+            }
+            renderBoard();
+            updateTileLegend();
+        }
+
+        function updateTileLegend() {
+            const pool = TILE_POOLS[gameState.currentEncounterType] || TILE_POOLS.combat;
+            const container = document.getElementById('tileLegend');
+            container.innerHTML = pool.map(typeKey => {
+                const t = TILE_TYPES[typeKey];
+                return `<div class="flex items-center space-x-1" title="${t.name}"><span>${t.icon}</span> <span class="text-wasteland-300">${t.name}</span></div>`;
+            }).join('');
+            
+            document.getElementById('boardContextBadge').textContent = gameState.currentEncounterType.toUpperCase() + ' POOL';
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('matchBoard');
+            boardEl.innerHTML = '';
+            
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const tileKey = board[r][c];
+                    const t = TILE_TYPES[tileKey] || TILE_TYPES.scrap;
+                    const tileDiv = document.createElement('div');
+                    tileDiv.className = `aspect-square rounded flex items-center justify-center text-xl sm:text-2xl border cursor-pointer transition-all duration-150 tile-hover ${tileKey ? t.color : 'tile-empty'} ${selectedTile && selectedTile.r === r && selectedTile.c === c ? 'tile-selected ring-2 ring-amber-400' : ''}`;
+                    tileDiv.textContent = tileKey ? t.icon : '';
+                    if (tileKey) tileDiv.title = `${t.name} — match 3 or more`;
+                    else tileDiv.setAttribute('aria-label','Matched tile space');
+                    tileDiv.dataset.row = r;
+                    tileDiv.dataset.col = c;
+                    tileDiv.onclick = () => handleTileClick(r, c);
+                    boardEl.appendChild(tileDiv);
+                }
+            }
+        }
+
+        function handleTileClick(r, c) {
+            if (isAnimating) return;
+            soundFX.click();
+
+            if (!selectedTile) {
+                selectedTile = { r, c };
+                renderBoard();
+            } else {
+                const dr = Math.abs(selectedTile.r - r);
+                const dc = Math.abs(selectedTile.c - c);
+                if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+                    // Adjacent swap
+                    swapTiles(selectedTile.r, selectedTile.c, r, c);
+                    selectedTile = null;
+                } else {
+                    selectedTile = { r, c };
+                    renderBoard();
+                }
+            }
+        }
+
+        function swapTiles(r1, c1, r2, c2) {
+            soundFX.swap();
+            // Swap in array
+            let temp = board[r1][c1];
+            board[r1][c1] = board[r2][c2];
+            board[r2][c2] = temp;
+            renderBoard();
+
+            // Check if swap produces a match
+            let matches = findMatches();
+            if (matches.length > 0) {
+                processMatches(matches);
+            } else {
+                // Swap back if invalid move
+                setTimeout(() => {
+                    let temp = board[r1][c1];
+                    board[r1][c1] = board[r2][c2];
+                    board[r2][c2] = temp;
+                    renderBoard();
+                    showToast("Invalid move (no match formed)", "⚠️");
+                }, 150);
+            }
+        }
+
+        function findMatches() {
+            let matchedCoords = new Set();
+
+            // Check horizontal matches
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE - 2; c++) {
+                    let val = board[r][c];
+                    if (!val) continue;
+                    let matchLen = 1;
+                    while (c + matchLen < BOARD_SIZE && board[r][c + matchLen] === val) {
+                        matchLen++;
+                    }
+                    if (matchLen >= 3) {
+                        for (let i = 0; i < matchLen; i++) {
+                            matchedCoords.add(`${r},${c + i}`);
+                        }
+                    }
+                }
+            }
+
+            // Check vertical matches
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                for (let r = 0; r < BOARD_SIZE - 2; r++) {
+                    let val = board[r][c];
+                    if (!val) continue;
+                    let matchLen = 1;
+                    while (r + matchLen < BOARD_SIZE && board[r + matchLen][c] === val) {
+                        matchLen++;
+                    }
+                    if (matchLen >= 3) {
+                        for (let i = 0; i < matchLen; i++) {
+                            matchedCoords.add(`${r + i},${c}`);
+                        }
+                    }
+                }
+            }
+
+            return Array.from(matchedCoords).map(coord => {
+                let parts = coord.split(',');
+                return { r: parseInt(parts[0]), c: parseInt(parts[1]) };
+            });
+        }
+
+        async function processMatches(matches, cascadeCount = 0) {
+            isAnimating = true;
+            if (cascadeCount === 0) {
+                soundFX.match();
+            } else {
+                soundFX.cascade();
+                showToast(`Cascade x${cascadeCount + 1}!`, "🔥");
+            }
+
+            // Tally matches first so the player sees the matched tiles react before clearing.
+            let matchCounts = {};
+            matches.forEach(m => {
+                let type = board[m.r][m.c];
+                matchCounts[type] = (matchCounts[type] || 0) + 1;
+            });
+            renderBoard();
+            matches.forEach(m => { const cell = document.querySelector(`#matchBoard [data-row="${m.r}"][data-col="${m.c}"]`); if(cell) cell.classList.add('match-pop'); });
+            applyMatchEffects(matchCounts, matches.length, cascadeCount);
+            await new Promise(res => setTimeout(res, 330));
+            // Briefly expose empty cells before gravity and refilling.
+            matches.forEach(m => { board[m.r][m.c] = null; });
+            renderBoard();
+            await new Promise(res => setTimeout(res, 190));
+            applyGravity();
+            renderBoard();
+            document.querySelectorAll('#matchBoard>div').forEach((cell,i)=>{cell.classList.add('tile-drop');cell.style.animationDelay=`${(i%7)*12}ms`;});
+            let newMatches = findMatches();
+            if (newMatches.length > 0) {
+                await new Promise(res => setTimeout(res, 340));
+                await processMatches(newMatches, cascadeCount + 1);
+            } else {
+                isAnimating = false;
+                checkEncounterProgress();
+            }
+        }
+
+        function applyGravity() {
+            const pool = TILE_POOLS[gameState.currentEncounterType] || TILE_POOLS.combat;
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                let writeRow = BOARD_SIZE - 1;
+                for (let r = BOARD_SIZE - 1; r >= 0; r--) {
+                    if (board[r][c] !== null) {
+                        board[writeRow][c] = board[r][c];
+                        if (writeRow !== r) {
+                            board[r][c] = null;
+                        }
+                        writeRow--;
+                    }
+                }
+                // Fill empty slots from top with random pool tiles
+                for (let r = writeRow; r >= 0; r--) {
+                    board[r][c] = pool[Math.floor(Math.random() * pool.length)];
+                }
+            }
+        }
+
+        function reshuffleBoard() {
+            if (gameState.actionBudget <= 0) {
+                showToast("No action budget remaining! Rest or move.", "⚠️");
+                return;
+            }
+            gameState.actionBudget--;
+            updateHUD();
+            initBoard();
+            showToast("Board reshuffled (-1 Action)", "🔀");
+            logAction("Reshuffled match-3 grid.");
+        }
+
+        /* ==========================================================
+           4. MATCH EFFECTS & ENCOUNTER LOGIC
+           ========================================================== */
+        function applyMatchEffects(counts, totalTiles, cascade) {
+            let logMsg = `Matched ${totalTiles} tiles`;
+            if (cascade > 0) logMsg += ` (Cascade x${cascade + 1})`;
+
+            // 1. Weapons / Damage
+            let dmg = (counts.sword || 0) * (gameState.equipped.weapon.atk || 5);
+            let fireDmg = currentWeather === 'rain' ? 0 : (counts.fire || 0) * 7;
+            if (currentWeather === 'rain' && counts.fire) { logMsg += ' | RAIN QUENCH: fire tiles deal no damage and add no fire charge this match.'; showToast('Rain quenches fire: no fire damage or charge this match.', '🌧️'); logAction('Weather rule: rain quenched matched 🔥 fire tiles; no fire damage or charge.', 'weather'); }
+            let frostDmg = (counts.frost || 0) * 6;
+            let totalDmg = dmg + fireDmg + frostDmg;
+
+            if (totalDmg > 0 && gameState.currentEncounterType === 'combat') {
+                showActionTrail('attack', matches);
+                soundFX.attack();
+                const beforeHp = gameState.encounterState.targetHp;
+                gameState.encounterState.targetHp = Math.max(0, beforeHp - totalDmg);
+                logMsg += ` | Dealt ${totalDmg} damage to ${gameState.encounterState.targetName || 'enemy'}!`;
+                showDamageFeedback(totalDmg, false);
+                renderEnemyRoster();
+                if (gameState.encounterState.targetHp <= 0) {
+                    gameState.encounterState.targetHp = 0;
+                    winCombatEncounter();
+                }
+            }
+
+            // 2. Shield / Defense
+            let shieldVal = (counts.shield || 0) * 5;
+            if (shieldVal > 0) {
+                soundFX.shield();
+                logMsg += ` | Gained +${shieldVal} Shield!`;
+                // Apply temporary player defense buff or mitigate incoming damage
+            }
+
+            // 3. Healing
+            let healVal = (counts.heal || 0) * 8;
+            if (healVal > 0) {
+                soundFX.heal();
+                gameState.hp = Math.min(gameState.maxHp, gameState.hp + healVal);
+                logMsg += ` | Restored ${healVal} HP!`;
+            }
+
+            // 4. Supplies / Food
+            let foodVal = (counts.food || 0) * 5;
+            if (foodVal > 0) {
+                gameState.caps += (counts.food || 0);
+                logMsg += ` | Scavenged supplies & +${counts.food || 0} caps!`;
+            }
+
+            // 5. Scrap & Materials
+            let scrapVal = (counts.scrap || 0);
+            if (scrapVal > 0) {
+                addInventoryItem('scrap', 'Metal Scrap', 'material', 2, scrapVal, '⚙️');
+                logMsg += ` | Collected ${scrapVal} Metal Scrap!`;
+            }
+
+            // 6. Bottle Caps
+            let capsVal = (counts.caps || 0) * 3;
+            if (capsVal > 0) {
+                soundFX.coin();
+                gameState.caps += capsVal;
+                logMsg += ` | Found +${capsVal} Bottle Caps!`;
+            }
+
+            // 7. Lockpicks & Container Progress
+            const keyTiles = counts.lockpick || 0;
+            if (keyTiles > 0) {
+                showActionTrail('lock', matches);
+                soundFX.lockpick();
+                const base = ({1:0,2:25,3:60})[gameState.skills.lockpick] || 0;
+                gameState.skills.lockpickCharge = Math.min(100, Math.max(gameState.skills.lockpickCharge || 0, base) + keyTiles * 18);
+                if (gameState.currentEncounterType === 'safe') gameState.encounterState.lockpickProgress = gameState.skills.lockpickCharge;
+                logMsg += ` | Lock charge: ${gameState.skills.lockpickCharge}%`;
+                if (gameState.currentEncounterType === 'safe' && gameState.skills.lockpickCharge >= 100) winSafeEncounter();
+            }
+            if (counts.fire && currentWeather !== 'rain') { showActionTrail('fire', matches); gameState.skills.fire = Math.min(100, gameState.skills.fire + counts.fire * 18); }
+            else if (counts.fire && currentWeather === 'rain') { /* explicit weather feedback is shown above */ }
+            if (counts.frost) { showActionTrail('frost', matches); gameState.skills.frost = Math.min(100, gameState.skills.frost + counts.frost * 18); }
+            if (counts.scrap) { showActionTrail('light', matches); gameState.skills.light = Math.min(100, gameState.skills.light + counts.scrap * 12); }
+
+            logAction(logMsg);
+            updateHUD();
+        }
+
+        function setSkill(skill, rank) {
+            if (skill !== 'lockpick') return;
+            gameState.skills.lockpick = rank;
+            const base = ({1:0,2:25,3:60})[rank] || 0;
+            gameState.skills.lockpickCharge = Math.max(gameState.skills.lockpickCharge || 0, base);
+            if (!gameState.encounterState.lockpickProgress || gameState.encounterState.lockpickProgress < base) gameState.encounterState.lockpickProgress = gameState.skills.lockpickCharge;
+            // Build trade-off: specialist lockpicking reduces max action budget.
+            gameState.maxActionBudget = rank === 3 ? 2 : 3;
+            gameState.actionBudget = Math.min(gameState.actionBudget, gameState.maxActionBudget);
+            logAction(`Build changed: Lockpicking ${rank === 3 ? 'Expert' : 'Level '+rank}; action budget ${gameState.maxActionBudget}.`);
+            updateHUD();
+        }
+        function useElement(element) {
+            if (gameState.currentEncounterType !== 'combat') { showToast('Elemental abilities are battle-only.', '⚠️'); return; }
+            const charge = gameState.skills[element] || 0;
+            if (charge < 100) { showToast('Charge meter must be full first.', '⚡'); return; }
+            const amount = element === 'fire' ? 24 : 18;
+            gameState.encounterState.targetHp = Math.max(0, gameState.encounterState.targetHp - amount);
+            gameState.skills[element] = ({1:0,2:25,3:60})[gameState.skills.lockpick] || 0;
+            showDamageFeedback(amount, false);
+            logAction(`${element === 'fire' ? '🔥 Fire Burst' : '❄️ Frost Strike'} dealt ${amount} damage!`,'damage');
+            if (gameState.encounterState.targetHp <= 0) winCombatEncounter();
+            updateHUD();
+        }
+        function updateSkillMeters() {
+            const lockBase = ({1:0,2:25,3:60})[gameState.skills.lockpick] || 0;
+            const lock = gameState.currentEncounterType === 'safe' ? Math.max(gameState.encounterState.lockpickProgress || 0, lockBase) : Math.max(gameState.skills.lockpickCharge || 0, lockBase);
+            const setMeter=(id,label,value)=>{const f=document.getElementById(id),l=document.getElementById(label);if(f)f.style.width=Math.min(100,value)+'%';if(l)l.textContent=Math.min(100,value)+'%';};
+            setMeter('lockMeterFill','lockMeterLabel',lock);setMeter('fireMeterFill','fireMeterLabel',gameState.skills.fire||0);setMeter('frostMeterFill','frostMeterLabel',gameState.skills.frost||0);setMeter('lightMeterFill','lightMeterLabel',gameState.skills.light||0);
+            const rank=document.getElementById('lockSkillRank');if(rank)rank.textContent=gameState.skills.lockpick===3?'Expert':`Lv ${gameState.skills.lockpick}`;
+            const fb=document.getElementById('useFireBtn'),xb=document.getElementById('useFrostBtn');if(fb)fb.disabled=(gameState.skills.fire||0)<100||gameState.currentEncounterType!=='combat';if(xb)xb.disabled=(gameState.skills.frost||0)<100||gameState.currentEncounterType!=='combat';
+        }
+        function updateUpcomingEvent() {
+            const next = WORLD_LOCATIONS[Math.min(gameState.locationIndex + 1, WORLD_LOCATIONS.length - 1)];
+            if (!next) return;
+            const title=document.getElementById('nextEventTitle'),hint=document.getElementById('nextEventHint');
+            if(title)title.textContent=next.title;
+            const hints={combat:'Hostile contact ahead: build blade, shield and elemental charge.',safe:'Locked salvage ahead: match 🗝️ keys to charge lockpicking.',cache:'Supply cache ahead: build the light meter with ⚙ scrap for bonus loot.',trader:'Trader ahead: match 🪙 caps to prepare for purchases.',hazard:'Radiation zone ahead: prioritize healing and defense.'};
+            if(hint)hint.textContent=hints[next.type]||'Prepare supplies before moving on.';
+        }
+
+        function checkEncounterProgress() {
+            // Enemy counterattack in combat mode if enemy still alive
+            if (gameState.currentEncounterType === 'combat' && gameState.encounterState.targetHp > 0) {
+                let enemyAtk = 12 + Math.floor(gameState.locationIndex * 3);
+                let def = gameState.equipped.armor.def || 0;
+                let finalDmg = Math.max(3, enemyAtk - def);
+                gameState.hp -= finalDmg;
+                showDamageFeedback(finalDmg, true);
+                logAction(`Enemy counterattacked — you took ${finalDmg} damage.`, 'damage');
+                soundFX.attack();
+                updateHUD();
+
+                if (gameState.hp <= 0) {
+                    gameState.hp = 0;
+                    triggerGameOver(false);
+                }
+            }
+        }
+
+        function showDamageFeedback(amount, playerHit=false) {
+            const viewport = document.querySelector('.wasteland-viewport');
+            if (!viewport) return;
+            const pop = document.createElement('div');
+            pop.className = 'damage-float' + (amount >= 20 ? ' critical' : '');
+            pop.style.left = playerHit ? '34%' : '62%';
+            pop.style.top = playerHit ? '47%' : '35%';
+            pop.textContent = playerHit ? `-${amount} HP` : `-${amount}`;
+            viewport.appendChild(pop);
+            viewport.classList.remove('viewport-hit');
+            void viewport.offsetWidth;
+            viewport.classList.add('viewport-hit');
+            setTimeout(() => pop.remove(), 1200);
+        }
+
+        function renderEnemyRoster() {
+            const roster = document.getElementById('enemyRoster');
+            if (!roster) return;
+            const es = gameState.encounterState || {};
+            const enemies = Array.isArray(es.enemies) ? es.enemies : (gameState.currentEncounterType === 'combat' ? [{ name: es.targetName || 'HOSTILE', hp: Math.max(0,es.targetHp||0), maxHp: es.targetMaxHp || 1 }] : []);
+            if (!enemies.length || gameState.currentEncounterType !== 'combat') { roster.classList.add('hidden'); roster.innerHTML=''; return; }
+            roster.classList.remove('hidden');
+            roster.style.gridTemplateColumns = enemies.length >= 3 ? 'repeat(2,minmax(0,1fr))' : 'repeat(1,minmax(0,1fr))';
+            roster.innerHTML = enemies.map((enemy,i) => {
+                const pct = Math.max(0,Math.min(100,(enemy.hp / Math.max(1,enemy.maxHp))*100));
+                return `<div class="enemy-card"><div class="flex justify-between gap-2 text-[10px] mb-1"><span class="text-red-300 font-bold truncate">☠ ${enemy.name}</span><span class="text-stone-200 whitespace-nowrap">${enemy.hp}/${enemy.maxHp}</span></div><div class="enemy-bar"><div class="enemy-fill" style="width:${pct}%"></div></div></div>`;
+            }).join('');
+        }
+
+        function winCombatEncounter() {
+            soundFX.win();
+            let rewardCaps = gameState.encounterState.rewardCaps || 30;
+            gameState.caps += rewardCaps;
+            showToast(`Enemy defeated! Looted +${rewardCaps} caps.`, "🏆");
+            logAction(`VICTORY: Defeated ${gameState.encounterState.targetName}! Looted ${rewardCaps} caps.`);
+            
+            // Advance story or location
+            setTimeout(() => {
+                advanceLocation();
+            }, 1200);
+        }
+
+        function winSafeEncounter() {
+            soundFX.win();
+            gameState.skills.lockpickCharge = ({1:0,2:25,3:60})[gameState.skills.lockpick] || 0;
+            let rewardItem = gameState.encounterState.reward || "Radio Vacuum Tube";
+            if ((gameState.skills.light || 0) >= 60) { gameState.caps += 15; logAction('Bright salvage sweep: the light meter revealed +15 extra caps.', 'loot'); }
+            addInventoryItem('radio_part', rewardItem, 'quest', 1, 1, '📻');
+            showToast(`Safe unlocked! Received ${rewardItem}.`, "🔓");
+            logAction(`SUCCESS: Opened ${gameState.encounterState.targetName} and obtained ${rewardItem}!`);
+            
+            // Check quest progress
+            if (gameState.quest.step === 3) {
+                gameState.quest.step = 4;
+            }
+
+            setTimeout(() => {
+                advanceLocation();
+            }, 1200);
+        }
+
+        /* ==========================================================
+           5. WORLD NAVIGATION & ENCOUNTERS
+           ========================================================== */
+        function advanceLocation() {
+            gameState.locationIndex++;
+            if (gameState.locationIndex >= WORLD_LOCATIONS.length) {
+                triggerGameOver(true); // Victory!
+                return;
+            }
+
+            let loc = WORLD_LOCATIONS[gameState.locationIndex];
+            document.getElementById('locationTitle').textContent = `LOCATION: ${loc.title}`;
+            document.getElementById('locationDescription').textContent = loc.desc;
+            
+            // Set encounter type
+            if (loc.type === 'combat') {
+                gameState.currentEncounterType = 'combat';
+                gameState.encounterState = {
+                    active: true,
+                    title: loc.title,
+                    description: loc.desc,
+                    targetName: loc.enemy.name,
+                    targetHp: loc.enemy.hp,
+                    targetMaxHp: loc.enemy.maxHp,
+                    targetDef: loc.enemy.def,
+                    rewardCaps: loc.enemy.caps
+                };
+                document.getElementById('targetProgressContainer').classList.remove('hidden');
+                document.getElementById('encounterPanelTitle').textContent = `ENCOUNTER: COMBAT (${loc.enemy.name})`;
+            } else if (loc.type === 'safe') {
+                gameState.currentEncounterType = 'safe';
+                gameState.encounterState = {
+                    active: true,
+                    title: loc.title,
+                    description: loc.desc,
+                    targetName: loc.container.name,
+                    lockpickProgress: Math.max(gameState.skills.lockpickCharge || 0, ({1:0,2:25,3:60})[gameState.skills.lockpick] || 0),
+                    lockpickRequired: 100,
+                    reward: loc.container.reward
+                };
+                document.getElementById('targetProgressContainer').classList.remove('hidden');
+                document.getElementById('encounterPanelTitle').textContent = `ENCOUNTER: LOCKED CONTAINER (${loc.container.name})`;
+                document.getElementById('targetNameLabel').textContent = loc.container.name;
+                document.getElementById('targetValueLabel').textContent = `Progress: 0/${loc.container.req}`;
+            } else if (loc.trader) {
+                gameState.currentEncounterType = 'trader';
+                gameState.encounterState.active = false;
+                document.getElementById('targetProgressContainer').classList.add('hidden');
+                document.getElementById('encounterPanelTitle').textContent = `ENCOUNTER: TRADER CARAVAN`;
+            } else if (loc.hazard) {
+                gameState.currentEncounterType = 'hazard';
+                gameState.rads += 25;
+                showToast("Radiation Storm exposed you to +25 Rads!", "⚠️");
+                document.getElementById('targetProgressContainer').classList.add('hidden');
+                document.getElementById('encounterPanelTitle').textContent = `ENCOUNTER: RADIATION STORM HAZARD`;
+            } else {
+                gameState.currentEncounterType = 'cache';
+                gameState.encounterState.active = false;
+                document.getElementById('targetProgressContainer').classList.add('hidden');
+                document.getElementById('encounterPanelTitle').textContent = `ENCOUNTER: ABANDONED SUPPLY CACHE`;
+            }
+
+            gameState.skills.fire = 0;
+            gameState.skills.frost = 0;
+            gameState.skills.lockpickCharge = Math.max(gameState.skills.lockpickCharge || 0, ({1:0,2:25,3:60})[gameState.skills.lockpick] || 0);
+            gameState.actionBudget = gameState.maxActionBudget;
+            initBoard();
+            updateHUD();
+            drawWorldCanvas();
+        }
+
+        function moveForward() {
+            if (gameState.actionBudget <= 0) {
+                showToast("Action budget depleted! Rest or reshuffle.", "⚠️");
+                return;
+            }
+            gameState.actionBudget--;
+            gameState.hour += 2;
+            if (gameState.hour >= 24) {
+                gameState.hour -= 24;
+                gameState.day++;
+            }
+            showToast("Moved forward along the wasteland route.", "🧭");
+            logAction(`Travelled forward. Time: Day ${gameState.day} - ${gameState.hour}:00`);
+            const vp=document.querySelector('.wasteland-viewport');
+            if(vp){vp.classList.remove('world-travel');void vp.offsetWidth;vp.classList.add('world-travel');}
+            gameState.travelSteps = (gameState.travelSteps || 0) + 1;
+            // Show a short moving-world beat before the next generated encounter.
+            setTimeout(() => advanceLocation(), 430);
+        }
+
+        function turnWorld(dir) {
+            gameState.direction = (gameState.direction + dir + 4) % 4;
+            const directions = ['North', 'East', 'South', 'West'];
+            showToast(`Facing direction: ${directions[gameState.direction]}`, "🧭");
+            logAction(`Turned ${dir > 0 ? 'Right' : 'Left'}. Now facing ${directions[gameState.direction]}.`);
+            drawWorldCanvas();
+        }
+
+        function triggerInvestigate() {
+            if (gameState.actionBudget <= 0) {
+                showToast("No action budget remaining!", "⚠️");
+                return;
+            }
+            gameState.actionBudget--;
+            let bonusCaps = Math.floor(Math.random() * 20) + 10;
+            gameState.caps += bonusCaps;
+            showToast(`Investigated surroundings: Found +${bonusCaps} bottle caps!`, "🔍");
+            logAction(`Investigated location ruins and recovered ${bonusCaps} bottle caps.`);
+            updateHUD();
+        }
+
+        function triggerRest() {
+            if (gameState.actionBudget <= 0) {
+                showToast("No action budget remaining!", "⚠️");
+                return;
+            }
+            gameState.actionBudget--;
+            let healAmt = 25;
+            gameState.hp = Math.min(gameState.maxHp, gameState.hp + healAmt);
+            gameState.rads = Math.max(0, gameState.rads - 10);
+            showToast(`Camp Rest: Recovered ${healAmt} HP and -10 Rads.`, "🏕️");
+            logAction(`Set up temporary campfire shelter. Restored ${healAmt} HP.`);
+            updateHUD();
+        }
+
+        /* ==========================================================
+           6. INVENTORY & TRADER SYSTEM
+           ========================================================== */
+        function addInventoryItem(id, name, type, weight, count, icon, desc) {
+            let existing = gameState.inventory.find(i => i.id === id);
+            if (existing) {
+                existing.count += count;
+            } else {
+                gameState.inventory.push({ id, name, type, weight, count, icon, desc: desc || '' });
+            }
+            recalculateWeight();
+        }
+
+        function recalculateWeight() {
+            let total = 0;
+            gameState.inventory.forEach(i => {
+                total += (i.weight * i.count);
+            });
+            gameState.weight = parseFloat(total.toFixed(1));
+            document.getElementById('statWeight').textContent = `${gameState.weight}/${gameState.equipped.backpack.maxWeight}kg`;
+        }
+
+        function renderInventoryModal() {
+            // Equipped Gear
+            const eqList = document.getElementById('equippedList');
+            eqList.innerHTML = `
+                <div class="flex justify-between items-center bg-wasteland-800 p-2 rounded border border-wasteland-700">
+                    <span class="flex items-center space-x-2"><span>${gameState.equipped.weapon.icon}</span> <span>Weapon: <b>${gameState.equipped.weapon.name}</b> (+${gameState.equipped.weapon.atk} Atk)</span></span>
+                    <span class="text-amber-400 text-xs">Equipped</span>
+                </div>
+                <div class="flex justify-between items-center bg-wasteland-800 p-2 rounded border border-wasteland-700">
+                    <span class="flex items-center space-x-2"><span>${gameState.equipped.armor.icon}</span> <span>Armor: <b>${gameState.equipped.armor.name}</b> (+${gameState.equipped.armor.def} Def)</span></span>
+                    <span class="text-amber-400 text-xs">Equipped</span>
+                </div>
+                <div class="flex justify-between items-center bg-wasteland-800 p-2 rounded border border-wasteland-700">
+                    <span class="flex items-center space-x-2"><span>${gameState.equipped.backpack.icon}</span> <span>Backpack: <b>${gameState.equipped.backpack.name}</b> (${gameState.equipped.backpack.maxWeight}kg Max)</span></span>
+                    <span class="text-amber-400 text-xs">Equipped</span>
+                </div>
+                ${['head','helmet','top','pants','gloves','shoes'].map(slot => `<div class="flex justify-between items-center bg-wasteland-800 p-2 rounded border border-wasteland-700"><span>${({head:'🧢 Head',helmet:'⛑ Helmet',top:'🧥 Top',pants:'👖 Pants',gloves:'🧤 Gloves',shoes:'🥾 Shoes'})[slot]}: <b>${gameState.equipped[slot]?.name || '— empty —'}</b></span><span class="text-amber-400 text-[10px]">${gameState.equipped[slot]?'Equipped':'Empty'}</span></div>`).join('')}
+            `;
+
+            // Inventory items
+            const invList = document.getElementById('inventoryList');
+            if (gameState.inventory.length === 0) {
+                invList.innerHTML = `<div class="text-wasteland-400 italic">Inventory is empty.</div>`;
+                return;
+            }
+
+            invList.innerHTML = gameState.inventory.map((item, idx) => `
+                <div class="flex justify-between items-center bg-wasteland-800 p-2 rounded border border-wasteland-700">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-lg">${item.icon}</span>
+                        <div>
+                            <div class="font-bold text-white">${item.name} <span class="text-wasteland-400 font-mono font-normal">x${item.count}</span></div>
+                            <div class="text-[10px] text-wasteland-400">${item.desc || item.type}</div>
+                        </div>
+                    </div>
+                    <div>
+                        ${item.type === 'consumable' ? `<button onclick="useConsumable(${idx})" class="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-700 rounded text-xs text-white font-semibold transition">Use</button>` : ''}
+                        ${item.type === 'gear' ? `<button onclick="equipGear(${idx})" class="px-2.5 py-1 bg-amber-800 hover:bg-amber-700 rounded text-xs text-white font-semibold transition">Equip</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('invCapacity').textContent = `${gameState.weight} / ${gameState.equipped.backpack.maxWeight} kg`;
+        }
+
+        function equipGear(idx) {
+            const item = gameState.inventory[idx];
+            if (!item || item.type !== 'gear' || !item.slot) return;
+            const slot = item.slot;
+            if (!['head','helmet','top','pants','gloves','shoes'].includes(slot)) { showToast('This gear slot is not supported yet.', '⚠️'); return; }
+            const previous = gameState.equipped[slot];
+            gameState.equipped[slot] = { ...item, color: item.color || '#596548' };
+            gameState.inventory.splice(idx,1);
+            if (previous && previous.id) gameState.inventory.push({ ...previous, type:'gear', slot, weight:previous.weight||1, count:1, desc:`Equipped gear · ${slot} slot` });
+            showToast(`Equipped ${item.name}`, item.icon || '🧥');
+            logAction(`Equipped ${item.name} in ${slot} slot.`, 'loot');
+            renderInventoryModal();
+            drawWorldCanvas();
+            updateHUD();
+        }
+
+        function useConsumable(idx) {
+            let item = gameState.inventory[idx];
+            if (!item || item.type !== 'consumable') return;
+
+            if (item.id === 'stimpak') {
+                gameState.hp = Math.min(gameState.maxHp, gameState.hp + item.value);
+                soundFX.heal();
+                showToast("Used Stimpak: Restored 40 HP.", "💉");
+            } else if (item.id === 'radaway') {
+                gameState.rads = Math.max(0, gameState.rads - item.value);
+                soundFX.heal();
+                showToast("Used Rad-Away: Removed 30 Radiation.", "🧪");
+            } else if (item.id === 'cannedfood') {
+                gameState.hp = Math.min(gameState.maxHp, gameState.hp + 20);
+                soundFX.heal();
+                showToast("Ate Canned Beans: Restored 20 HP.", "🥫");
+            }
+
+            item.count--;
+            if (item.count <= 0) {
+                gameState.inventory.splice(idx, 1);
+            }
+            recalculateWeight();
+            renderInventoryModal();
+            updateHUD();
+        }
+
+        function renderShopModal() {
+            document.getElementById('shopCaps').textContent = gameState.caps;
+            const shopList = document.getElementById('shopItemsList');
+            const shopStock = [
+                { id: 'stimpak', name: 'Stimpak', type: 'consumable', price: 25, icon: '💉', desc: 'Restores 40 HP' },
+                { id: 'radaway', name: 'Rad-Away', type: 'consumable', price: 30, icon: '🧪', desc: 'Removes 30 Rads' },
+                { id: 'lockpick', name: 'Lockpick Set', type: 'tool', price: 20, icon: '🗝️', desc: 'Used for opening containers' },
+                { id: 'fire_machete', name: 'Fire Machete', type: 'weapon', price: 120, icon: '🔥', desc: 'Weapon: +12 Atk + Fire damage' },
+                { id: 'scavenger_helmet', name: 'Scavenger Helmet', type: 'gear', slot: 'helmet', price: 55, icon: '⛑️', color: '#77704e', desc: 'Wearable gear · Helmet slot' },
+                { id: 'raider_jacket', name: 'Raider Field Jacket', type: 'gear', slot: 'top', price: 45, icon: '🧥', color: '#6b4a36', desc: 'Wearable gear · Top slot' },
+                { id: 'reinforced_boots', name: 'Reinforced Boots', type: 'gear', slot: 'shoes', price: 35, icon: '🥾', color: '#55412d', desc: 'Wearable gear · Shoes slot' }
+            ];
+
+            shopList.innerHTML = shopStock.map(item => `
+                <div class="bg-wasteland-900 p-3 rounded border border-wasteland-700 flex justify-between items-center">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-2xl">${item.icon}</span>
+                        <div>
+                            <div class="font-bold text-white">${item.name}</div>
+                            <div class="text-[10px] text-wasteland-400">${item.desc}</div>
+                            <div class="text-amber-400 font-mono text-xs mt-1">Price: ${item.price} Caps</div>
+                        </div>
+                    </div>
+                    <button onclick="buyShopItem('${item.id}', ${item.price})" class="px-3 py-1.5 bg-blue-800 hover:bg-blue-700 rounded text-xs text-white font-semibold transition">Buy</button>
+                </div>
+            `).join('');
+        }
+
+        function buyShopItem(id, price) {
+            if (gameState.caps < price) {
+                showToast("Not enough bottle caps!", "⚠️");
+                return;
+            }
+            gameState.caps -= price;
+            soundFX.coin();
+
+            if (id === 'stimpak') addInventoryItem('stimpak', 'Stimpak', 'consumable', 1, 1, '💉', 'Restores 40 HP');
+            else if (id === 'radaway') addInventoryItem('radaway', 'Rad-Away', 'consumable', 1, 1, '🧪', 'Removes 30 Radiation');
+            else if (id === 'lockpick') addInventoryItem('lockpick', 'Lockpick Set', 'tool', 0.5, 2, '🗝️', 'Used for opening safes');
+            else if (id === 'fire_machete') {
+                gameState.equipped.weapon = { id: 'fire_machete', name: 'Fire Machete', type: 'weapon', atk: 12, element: 'fire', icon: '🔥' };
+                showToast("Equipped Fire Machete!", "🔥");
+            } else if (['scavenger_helmet','raider_jacket','reinforced_boots'].includes(id)) {
+                const gear = ({ scavenger_helmet:{id:'scavenger_helmet',name:'Scavenger Helmet',slot:'helmet',price:55,icon:'⛑️',color:'#77704e',desc:'Wearable gear · Helmet slot'}, raider_jacket:{id:'raider_jacket',name:'Raider Field Jacket',slot:'top',price:45,icon:'🧥',color:'#6b4a36',desc:'Wearable gear · Top slot'}, reinforced_boots:{id:'reinforced_boots',name:'Reinforced Boots',slot:'shoes',price:35,icon:'🥾',color:'#55412d',desc:'Wearable gear · Shoes slot'} })[id];
+                addInventoryItem(gear.id, gear.name, 'gear', 1, 1, gear.icon, gear.desc);
+                const inv = gameState.inventory.findIndex(x => x.id === gear.id);
+                if (inv >= 0) { gameState.inventory[inv].slot = gear.slot; gameState.inventory[inv].color = gear.color; }
+                showToast(`${gear.name} added to inventory — equip it to change your look.`, gear.icon);
+                logAction(`Purchased ${gear.name}; wearable gear added to pack.`, 'loot');
+            }
+
+            renderShopModal();
+            updateHUD();
+            drawWorldCanvas();
+        }
+
+        function renderQuestModal() {
+            const qEl = document.getElementById('questContent');
+            qEl.innerHTML = gameState.quest.objectties.map((obj, idx) => `
+                <div class="flex items-start space-x-2 bg-wasteland-900 p-2.5 rounded border ${idx < gameState.quest.step ? 'border-emerald-600/50 text-emerald-300' : idx === gameState.quest.step ? 'border-amber-500 text-amber-300' : 'border-wasteland-700 text-wasteland-500'}">
+                    <span>${idx < gameState.quest.step ? '✅' : idx === gameState.quest.step ? '👉' : '⏳'}</span>
+                    <div>
+                        <div class="font-bold">Objective ${idx + 1}: ${obj}</div>
+                        <div class="text-[10px] text-wasteland-400">${idx < gameState.quest.step ? 'Completed' : idx === gameState.quest.step ? 'Current active task' : 'Upcoming'}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('questStatusSummary').textContent = `Quest Progress: Step ${gameState.quest.step} / ${gameState.quest.maxStep}`;
+        }
+
+        /* ==========================================================
+           7. VIEWPORT CANVAS ANIMATION (Retro 3D Scene)
+           ========================================================== */
+        function drawWorldCanvas() {
+            const canvas = document.getElementById('worldCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = Math.max(1, canvas.parentElement.clientWidth);
+            const h = Math.max(1, canvas.parentElement.clientHeight);
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+            canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+            ctx.setTransform(dpr,0,0,dpr,0,0);
+            const cw=w, ch=h, horizon=ch*.49, cx=cw*.5;
+            const type=gameState.currentEncounterType || 'travel';
+            const drift = ((gameState.travelSteps || 0) % 5) * cw * 0.035;
+            const palette = type==='hazard' ? ['#293d37','#68725b','#b6a16b'] : ['#283b35','#65705b','#d1a967'];
+            // Dusty sky, low sun and distant toxic haze.
+            let sky=ctx.createLinearGradient(0,0,0,horizon+25); sky.addColorStop(0,'#172821'); sky.addColorStop(.58,palette[0]); sky.addColorStop(1,'#9b8a60');
+            ctx.fillStyle=sky; ctx.fillRect(0,0,cw,ch);
+            let glow=ctx.createRadialGradient(cw*.76,ch*.24,2,cw*.76,ch*.24,cw*.32);
+            glow.addColorStop(0,'rgba(224,188,112,.30)'); glow.addColorStop(1,'rgba(224,188,112,0)');
+            ctx.fillStyle=glow; ctx.fillRect(0,0,cw,ch);
+            ctx.fillStyle='#d8bd7d'; ctx.globalAlpha=.7; ctx.beginPath();ctx.arc(cw*.76,ch*.24,Math.max(12,ch*.065),0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+            // Layered broken skyline silhouettes.
+            function building(x,y,bw,bh,col,variant=0){ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x,y+bh);ctx.lineTo(x,y+bh*.18);ctx.lineTo(x+bw*.18,y+bh*.08);ctx.lineTo(x+bw*.27,y+bh*.2);ctx.lineTo(x+bw*.43,y);ctx.lineTo(x+bw*.56,y+bh*.14);ctx.lineTo(x+bw*.72,y+bh*.1);ctx.lineTo(x+bw*.72,y+bh*.28);ctx.lineTo(x+bw,y+bh*.22);ctx.lineTo(x+bw,y+bh);ctx.closePath();ctx.fill();
+                ctx.fillStyle='rgba(8,17,12,.62)'; for(let i=0;i<3;i++){let wx=x+bw*(.16+i*.24);let wy=y+bh*(.38+(i%2)*.18);ctx.fillRect(wx,wy,Math.max(3,bw*.07),Math.max(5,bh*.12));}}
+            building(-12-drift,horizon-72,105,83,'#26362c'); building(cw*.17+drift*.45,horizon-52,67,63,'#304035'); building(cw*.66-drift*.7,horizon-91,105,102,'#25362d'); building(cw*.83+drift,horizon-48,78,58,'#354235');
+            // Distant ridge and smoke wisps.
+            ctx.fillStyle='#3d4b3b';ctx.beginPath();ctx.moveTo(0,horizon+4);ctx.lineTo(cw*.14,horizon-13);ctx.lineTo(cw*.27,horizon+2);ctx.lineTo(cw*.44,horizon-19);ctx.lineTo(cw*.59,horizon+2);ctx.lineTo(cw*.8,horizon-15);ctx.lineTo(cw,horizon+4);ctx.closePath();ctx.fill();
+            ctx.fillStyle='rgba(179,177,133,.09)';for(let i=0;i<5;i++){ctx.beginPath();ctx.ellipse(cw*(.12+i*.19),horizon-25-i%2*8,20+i*5,4+i,0,0,Math.PI*2);ctx.fill();}
+            // Ground plane and broken road tapering toward the horizon.
+            let ground=ctx.createLinearGradient(0,horizon,0,ch);ground.addColorStop(0,'#4b503d');ground.addColorStop(.45,'#292e24');ground.addColorStop(1,'#111711');ctx.fillStyle=ground;ctx.fillRect(0,horizon,cw,ch-horizon);
+            ctx.fillStyle='#66634d';ctx.beginPath();ctx.moveTo(cx-cw*.055,horizon);ctx.lineTo(cx+cw*.055,horizon);ctx.lineTo(cx+cw*.43,ch);ctx.lineTo(cx-cw*.43,ch);ctx.closePath();ctx.fill();
+            ctx.fillStyle='rgba(18,24,17,.35)';ctx.beginPath();ctx.moveTo(cx-cw*.025,horizon);ctx.lineTo(cx+cw*.025,horizon);ctx.lineTo(cx+cw*.32,ch);ctx.lineTo(cx-cw*.32,ch);ctx.closePath();ctx.fill();
+            ctx.strokeStyle='rgba(221,192,120,.62)';ctx.lineWidth=1.5;ctx.setLineDash([8,10]);ctx.beginPath();ctx.moveTo(cx,horizon+4);ctx.lineTo(cx,ch);ctx.stroke();ctx.setLineDash([]);
+            // Road cracks, rubble and tufts of dead grass.
+            ctx.strokeStyle='rgba(9,15,10,.72)';ctx.lineWidth=2;[[.19,.8,.25,.87],[.77,.72,.72,.8],[.34,.93,.39,.9],[.84,.92,.78,.88]].forEach(a=>{ctx.beginPath();ctx.moveTo(cw*a[0],ch*a[1]);ctx.lineTo(cw*a[2],ch*a[3]);ctx.stroke()});
+            for(let i=0;i<17;i++){let x=((i*67+23)%Math.max(1,cw)), y=horizon+20+((i*37)%Math.max(1,ch-horizon-22));let s=2+(i%4)*1.5;ctx.fillStyle=i%2?'#171e16':'#6a6347';ctx.beginPath();ctx.moveTo(x-s,y);ctx.lineTo(x,y-s*.6);ctx.lineTo(x+s*1.8,y+s*.35);ctx.lineTo(x+s*.3,y+s);ctx.closePath();ctx.fill();}
+            // Leaning power poles and a broken cable help sell the abandoned road.
+            ctx.strokeStyle='#18251b';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(cw*.13,horizon-3);ctx.lineTo(cw*.10,horizon-67);ctx.moveTo(cw*.075,horizon-57);ctx.lineTo(cw*.14,horizon-57);ctx.stroke();
+            ctx.strokeStyle='rgba(20,30,21,.9)';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(cw*.10,horizon-62);ctx.quadraticCurveTo(cw*.34,horizon-27,cw*.53,horizon-49);ctx.stroke();
+            // Survivor silhouette in foreground: small, readable, and consistent with the original terminal aesthetic.
+            const px=cx + (gameState.direction===1?cw*.025:gameState.direction===3?-cw*.025:0), py=ch*.69;
+            ctx.fillStyle='rgba(0,0,0,.32)';ctx.beginPath();ctx.ellipse(px,py+ch*.2,17,5,0,0,Math.PI*2);ctx.fill();
+            const gear=gameState.equipped||{};
+            const pantsColor=gear.pants?.color||'#343e32', topColor=gear.top?.color||'#465744', gloveColor=gear.gloves?.color||'#65523a', shoeColor=gear.shoes?.color||'#3a3025';
+            // Backpack silhouette sits behind the shoulders and changes with backpack equipment.
+            ctx.fillStyle=(gear.backpack?.color||'#5c6946');ctx.fillRect(px-13,py+3,9,17);ctx.fillStyle='rgba(220,194,126,.65)';ctx.fillRect(px-12,py+6,7,2);ctx.strokeStyle='#1b281a';ctx.lineWidth=1.5;ctx.strokeRect(px-13,py+3,9,17);
+            ctx.fillStyle=shoeColor;ctx.fillRect(px-8,py+38,8,5);ctx.fillRect(px+2,py+38,8,5);
+            ctx.fillStyle=pantsColor;ctx.fillRect(px-8,py+17,7,23);ctx.fillRect(px+2,py+17,7,23);
+            ctx.fillStyle=topColor;ctx.beginPath();ctx.moveTo(px-10,py+1);ctx.lineTo(px+9,py+1);ctx.lineTo(px+13,py+23);ctx.lineTo(px-12,py+23);ctx.closePath();ctx.fill();
+            ctx.strokeStyle='#1b281a';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(px,py+3);ctx.lineTo(px,py+20);ctx.stroke();
+            ctx.fillStyle='#b68d67';ctx.beginPath();ctx.arc(px,py-5,7,0,Math.PI*2);ctx.fill();
+            if(gear.helmet){ctx.fillStyle=gear.helmet.color||'#77704e';ctx.beginPath();ctx.arc(px,py-7,9,Math.PI,Math.PI*2);ctx.lineTo(px+10,py-2);ctx.lineTo(px-10,py-2);ctx.closePath();ctx.fill();ctx.fillRect(px-10,py-3,20,3);}
+            else if(gear.head){ctx.fillStyle=gear.head.color||'#596548';ctx.beginPath();ctx.ellipse(px,py-9,10,4,0,Math.PI,Math.PI*2);ctx.fill();ctx.fillRect(px-2,py-10,10,3);}
+            ctx.strokeStyle='#0d160f';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(px-8,py+5);ctx.lineTo(px-15,py+20);ctx.moveTo(px+8,py+5);ctx.lineTo(px+13,py+17);ctx.stroke();
+            ctx.fillStyle=gloveColor;ctx.fillRect(px-17,py+18,5,4);ctx.fillRect(px+11,py+15,5,4);
+            // Context-specific scene object; the HUD retains Gemini's emoji vocabulary.
+            if(type==='combat'){
+                const ex=cx+cw*.19, ey=ch*.66;ctx.fillStyle='#111a14';ctx.beginPath();ctx.arc(ex,ey-15,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#465440';ctx.beginPath();ctx.moveTo(ex-12,ey-5);ctx.lineTo(ex+12,ey-5);ctx.lineTo(ex+16,ey+22);ctx.lineTo(ex-15,ey+22);ctx.closePath();ctx.fill();ctx.fillStyle='#efb65c';ctx.fillRect(ex-6,ey-17,3,2);ctx.fillRect(ex+3,ey-17,3,2);ctx.strokeStyle='#a4a58a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ex+15,ey+1);ctx.lineTo(ex+23,ey+19);ctx.stroke();
+            } else if(type==='safe' || type==='cache'){
+                const bx=cx+cw*.19, by=ch*.72;ctx.fillStyle='#303c30';ctx.fillRect(bx-16,by-15,34,27);ctx.strokeStyle='#9a956d';ctx.strokeRect(bx-16,by-15,34,27);ctx.fillStyle='#d6b65f';ctx.beginPath();ctx.arc(bx+7,by-2,3,0,Math.PI*2);ctx.fill();
+            } else if(type==='trader' || type==='camp'){
+                const tx=cx+cw*.19,ty=ch*.72;ctx.fillStyle='#65533b';ctx.beginPath();ctx.moveTo(tx-22,ty-6);ctx.lineTo(tx,ty-28);ctx.lineTo(tx+23,ty-6);ctx.closePath();ctx.fill();ctx.fillStyle='#283b2c';ctx.fillRect(tx-17,ty-6,34,23);ctx.fillStyle='#d9a64e';ctx.fillRect(tx-3,ty+4,7,13);
+            }
+            // Keep the original ASCII encounter label, now acting as a subtle retro title card.
+            const sceneVisual=document.getElementById('sceneVisual');
+            if(sceneVisual){
+                if(type==='combat') sceneVisual.textContent='[ ⚔ HOSTILE CONTACT ]';
+                else if(type==='safe'||type==='cache') sceneVisual.textContent='[ 🔐 SALVAGE SIGNAL ]';
+                else if(type==='trader') sceneVisual.textContent='[ 🪙 TRADER AHEAD ]';
+                else if(type==='camp') sceneVisual.textContent='[ ⛺ TEMPORARY SHELTER ]';
+                else if(type==='hazard') sceneVisual.textContent='[ ☢ RAD ZONE ]';
+                else sceneVisual.textContent='[ 🏚 RUINED HIGHWAY ]';
+            }
+            const distance=document.getElementById('viewportDistance');
+            if(distance) distance.innerHTML=`ROUTE <strong>${(Math.max(0,gameState.locationIndex)*0.15).toFixed(1).padStart(4,'0')} KM</strong>`;
+            const labels={combat:['⚔','HOSTILE CONTACT'],safe:['🔐','LOCKED SALVAGE'],cache:['📦','SUPPLY CACHE'],trader:['🪙','TRADER NEARBY'],camp:['⛺','CAMP / SHELTER'],hazard:['☢','RAD HAZARD']};
+            const badge=labels[type]||['🧭','WASTELAND ROUTE'];
+            const ci=document.getElementById('viewportContextIcon'), ct=document.getElementById('viewportContext');
+            if(ci)ci.textContent=badge[0];if(ct)ct.textContent=badge[1];
+            const compass=document.getElementById('viewportCompass');
+            if(compass){const dirs=['N','E','S','W'];compass.textContent=`▲ ${dirs[gameState.direction||0]} · ${type==='hazard'?'RAD SIGNAL DETECTED':'SIGNAL WEAK'}`;}
+        }
+
+        /* ==========================================================
+           8. HUD & GAME OVER UTILITIES
+           ========================================================== */
+        function updateHUD() {
+            document.getElementById('statHp').textContent = `${gameState.hp}/${gameState.maxHp}`;
+            const hpFill=document.getElementById('playerHealthFill'); if(hpFill) hpFill.style.width=`${Math.max(0,Math.min(100,gameState.hp/gameState.maxHp*100))}%`;
+            const hpTrack=document.getElementById('playerHealthTrack'); if(hpTrack) hpTrack.title=`Player health: ${gameState.hp}/${gameState.maxHp}`;
+            document.getElementById('statRad').textContent = `${gameState.rads} rad`;
+            document.getElementById('statCaps').textContent = gameState.caps;
+            document.getElementById('statWeight').textContent = `${gameState.weight}/${gameState.equipped.backpack.maxWeight}kg`;
+            document.getElementById('actionBudget').textContent = `Action Budget: ${gameState.actionBudget}/${gameState.maxActionBudget}`;
+
+            renderEnemyRoster();
+            updateSkillMeters(); updateUpcomingEvent();
+            const gearReadout=document.getElementById('gearReadout');
+            if(gearReadout){ const g=gameState.equipped||{}; const slots=[['head',g.helmet||g.head],['top',g.top],['pants',g.pants],['gloves',g.gloves],['shoes',g.shoes],['pack',g.backpack]]; gearReadout.innerHTML=slots.filter(x=>x[1]).map(([slot,item])=>`<span class="gear-chip" title="${item.name}">${({head:'HEAD',top:'TOP',pants:'LEGS',gloves:'HANDS',shoes:'FEET',pack:'PACK'})[slot]} ${item.icon||'•'}</span>`).join(''); }
+            if (gameState.currentEncounterType === 'combat') {
+                document.getElementById('targetProgressContainer').classList.add('hidden');
+                document.getElementById('targetValueLabel').textContent = `HP: ${gameState.encounterState.targetHp}/${gameState.encounterState.targetMaxHp}`;
+                let pct = (gameState.encounterState.targetHp / gameState.encounterState.targetMaxHp) * 100;
+                document.getElementById('targetProgressBar').style.width = `${Math.max(0, pct)}%`;
+            } else if (gameState.currentEncounterType === 'safe') {
+                document.getElementById('targetValueLabel').textContent = `Lock charge: ${gameState.encounterState.lockpickProgress || 0}% / 100%`;
+                let pct = (gameState.encounterState.lockpickProgress || 0);
+                document.getElementById('targetProgressBar').style.width = `${Math.min(100, pct)}%`;
+            }
+        }
+
+        function logAction(msg, kind='normal') {
+            const logEl = document.getElementById('actionLog');
+            if (!logEl) return;
+            const entry = document.createElement('div');
+            const now = `${String(gameState.hour).padStart(2,'0')}:00`;
+            const text = String(msg);
+            let category = kind;
+            if (category === 'normal') {
+                if (/weather|rain|snow|storm|frozen|cold front/i.test(text)) category = 'weather';
+                else if (/lock|skill|charge|fire burst|frost strike|build changed|meter/i.test(text)) category = 'skill';
+                else if (/victory|defeated|damage|attack|raider|enemy|combat|shield/i.test(text)) category = 'combat';
+                else if (/loot|found|obtained|collected|caps|scrap|gear|equipment|cache|salvage/i.test(text)) category = 'loot';
+                else if (/heal|rest|recovered|health/i.test(text)) category = 'good';
+                else if (/travel|location|turned|journey|moved|route/i.test(text)) category = 'travel';
+                else category = 'system';
+            }
+            const icons = {damage:'💥',combat:'⚔️',loot:'🎒',good:'💚',travel:'🧭',skill:'✨',weather:'🌦️',system:'›',normal:'›'};
+            const tone = category === 'damage' ? ' damage' : ['combat','loot','good','travel','skill','weather','system'].includes(category) ? ` ${category}` : '';
+            entry.className = `journey-entry${tone}`;
+            entry.innerHTML = `<span class="log-time">${now}</span><span class="log-icon">${icons[category] || icons.normal}</span><span></span>`;
+            entry.lastElementChild.textContent = text;
+            logEl.prepend(entry);
+            while (logEl.children.length > 24) logEl.lastElementChild.remove();
+        }
+
+        function showToast(text, icon = "✨") {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastIcon').textContent = icon;
+            document.getElementById('toastText').textContent = text;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function openModal(modalId) {
+            soundFX.click();
+            if (modalId === 'inventoryModal') renderInventoryModal();
+            else if (modalId === 'shopModal') renderShopModal();
+            else if (modalId === 'questModal') renderQuestModal();
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            soundFX.click();
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function triggerGameOver(isVictory) {
+            if (isVictory) {
+                soundFX.win();
+                document.getElementById('gameOverIcon').textContent = '🏆';
+                document.getElementById('gameOverTitle').textContent = 'BEACON TRANSMISSION SUCCESSFUL!';
+                document.getElementById('gameOverTitle').className = 'text-xl font-bold text-emerald-400 tracking-wider mb-2';
+                document.getElementById('gameOverDesc').textContent = 'You successfully repaired the radio beacon, defeated the wasteland raiders, and transmitted the rescue signal to the Last Bastion enclave!';
+            } else {
+                soundFX.gameOver();
+                document.getElementById('gameOverIcon').textContent = '💀';
+                document.getElementById('gameOverTitle').textContent = 'SURVIVOR PERISHED';
+                document.getElementById('gameOverTitle').className = 'text-xl font-bold text-red-400 tracking-wider mb-2';
+                document.getElementById('gameOverDesc').textContent = 'You succumbed to the harsh hazards, radiation, and raiders of the wasteland.';
+            }
+
+            document.getElementById('runSummaryStats').innerHTML = `
+                <div>📍 Locations Traversed: ${gameState.locationIndex + 1} / ${WORLD_LOCATIONS.length}</div>
+                <div>🪙 Bottle Caps Collected: ${gameState.caps}</div>
+                <div>📅 Days Survived: Day ${gameState.day}</div>
+                <div>🎒 Final Inventory Items: ${gameState.inventory.length}</div>
+            `;
+            document.getElementById('gameOverModal').classList.remove('hidden');
+        }
+
+        function restartGame() {
+            soundFX.click();
+            document.getElementById('gameOverModal').classList.add('hidden');
+            gameState.hp = 100;
+            gameState.rads = 0;
+            gameState.caps = 75;
+            gameState.day = 1;
+            gameState.hour = 14;
+            gameState.actionBudget = 3;
+            gameState.maxActionBudget = 3;
+            gameState.skills = { lockpick: 1, lockpickCharge: 0, fire: 0, frost: 0, light: 0 };
+            gameState.travelSteps = 0;
+            gameState.locationIndex = 0;
+            gameState.inventory = [
+                { id: 'stimpak', name: 'Stimpak', type: 'consumable', value: 40, weight: 1, count: 3, icon: '💉', desc: 'Restores 40 HP' },
+                { id: 'radaway', name: 'Rad-Away', type: 'consumable', value: 30, weight: 1, count: 2, icon: '🧪', desc: 'Removes 30 Radiation' },
+                { id: 'cannedfood', name: 'Canned Beans', type: 'consumable', value: 25, weight: 1, count: 4, icon: '🥫', desc: 'Restores hunger & health' },
+                { id: 'lockpick', name: 'Lockpick Set', type: 'tool', weight: 0.5, count: 5, icon: '🗝️', desc: 'Used for opening safes' },
+                { id: 'scrap', name: 'Metal Scrap', type: 'material', weight: 2, count: 8, icon: '⚙️', desc: 'Crafting & trading resource' },
+                { id: 'radio_part', name: 'Radio Vacuum Tube', type: 'quest', weight: 1, count: 3, icon: '📻', desc: 'Needed for beacon repair' },
+                { id: 'salvage_hood', name: 'Salvaged Raider Hood', type: 'gear', slot: 'head', weight: 1, count: 1, icon: '🪖', color: '#6b4a36', desc: 'Gear · Head slot · rugged brown hood' },
+                { id: 'patched_trousers', name: 'Patched Reinforced Trousers', type: 'gear', slot: 'pants', weight: 2, count: 1, icon: '👖', color: '#4b5140', desc: 'Gear · Pants slot · reinforced fabric' }
+            ];
+            gameState.quest.step = 3;
+            recalculateWeight();
+            advanceLocation();
+            showToast("Started a new wasteland run.", "🔄");
+        }
+
+        function showActionTrail(kind, matchedTiles=[]) {
+            const boardEl=document.getElementById('matchBoard');
+            const to=kind==='attack' ? (document.getElementById('sceneVisual') || document.getElementById('worldPanel')) : kind==='lock' ? document.getElementById('lockMeterFill') : document.getElementById('lightMeterFill');
+            if(!boardEl||!to)return;
+            const br=boardEl.getBoundingClientRect(), tr=to.getBoundingClientRect();
+            let x1=br.left+br.width*.5, y1=br.top+br.height*.48;
+            if(matchedTiles && matchedTiles.length){
+                const pts=matchedTiles.map(m=>{const cell=boardEl.querySelector(`[data-row="${m.r}"][data-col="${m.c}"]`);if(!cell)return null;const r=cell.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};}).filter(Boolean);
+                if(pts.length){x1=pts.reduce((a,p)=>a+p.x,0)/pts.length;y1=pts.reduce((a,p)=>a+p.y,0)/pts.length;}
+            }
+            let x2=tr.left+tr.width*.5, y2=tr.top+tr.height*.5;
+            if(kind==='attack') { const wr=document.getElementById('worldPanel').getBoundingClientRect(); x2=wr.left+wr.width*.67; y2=wr.top+wr.height*.47; }
+            const colors={attack:'#ff7968',lock:'#c084fc',light:'#facc15',fire:'#fb923c',frost:'#7dd3fc'};
+            const color=colors[kind]||'#8af0b3';
+            const dx=x2-x1,dy=y2-y1, distance=Math.hypot(dx,dy);
+            // A brief ring makes the match point feel like the source of the energy.
+            const ring=document.createElement('div');ring.className='match-origin-ring';ring.style.left=`${x1}px`;ring.style.top=`${y1}px`;ring.style.color=color;document.body.appendChild(ring);setTimeout(()=>ring.remove(),400);
+            const target=document.createElement('div');target.className='match-target-pulse';target.style.left=`${x2}px`;target.style.top=`${y2}px`;target.style.color=color;document.body.appendChild(target);setTimeout(()=>target.remove(),600);
+            // Several motes follow a curved, slightly staggered path, then settle at the target.
+            const duration=kind==='attack'?570:510;
+            const curveX=-dy*.13, curveY=dx*.13;
+            for(let i=0;i<6;i++){
+                const mote=document.createElement('div');mote.className='match-mote';mote.style.color=color;mote.style.background=color;mote.style.opacity='0';document.body.appendChild(mote);
+                const delay=i*34, born=performance.now()+delay;
+                function travel(now){
+                    const raw=(now-born)/duration;
+                    if(raw<0){requestAnimationFrame(travel);return;}
+                    if(raw>=1){mote.style.left=`${x2}px`;mote.style.top=`${y2}px`;mote.style.opacity='0';setTimeout(()=>mote.remove(),100);return;}
+                    const t=raw, eased=1-Math.pow(1-t,1.65), bend=Math.sin(Math.PI*t);
+                    const x=x1+dx*eased+curveX*bend, y=y1+dy*eased+curveY*bend;
+                    mote.style.left=`${x}px`;mote.style.top=`${y}px`;mote.style.opacity=String(Math.min(1,t*5,(1-t)*4+.2));
+                    const scale=.55+Math.sin(t*Math.PI)*.7;mote.style.scale=String(scale);
+                    requestAnimationFrame(travel);
+                }
+                requestAnimationFrame(travel);
+            }
+        }
+
+        function toggleTileLegend() {
+            const legend=document.getElementById('tileLegend'); const btn=document.getElementById('legendToggle');
+            if(!legend||!btn)return;
+            const collapsed=legend.classList.toggle('legend-collapsed');
+            btn.setAttribute('aria-expanded',String(!collapsed));
+            btn.textContent=(collapsed?'▸':'▾')+' TILE LEGEND / ICON KEY';
+        }
+        function placeJourneyLog() {
+            const panel=document.getElementById('journeyLogPanel'); const side=document.getElementById('encounterPanel');
+            if(panel&&side&&panel.parentElement!==side) side.appendChild(panel);
+        }
+        function setAmbientWeather() {
+            const weatherEl=document.getElementById('sceneWeather'); if(!weatherEl)return;
+            const options=[{name:'clear',cls:''},{name:'overcast',cls:''},{name:'rain',cls:'rain'},{name:'snow',cls:'snow'}];
+            const weather=options[Math.floor(Math.random()*options.length)]; currentWeather=weather.name;
+            weatherEl.className='scene-weather'+(weather.cls?' '+weather.cls:'');
+            weatherEl.title=`Weather: ${weather.name}`;
+            const rule=document.getElementById('weatherRuleChip');
+            if(rule){
+                const rules={rain:'🌧 RAIN RULE: 🔥 Fire matches still clear tiles, but deal no fire damage and grant no fire charge.',snow:'❄ SNOW: Cold conditions visible; frozen-tile mechanics are not active yet.',overcast:'☁ OVERCAST: No tile penalties. Watch for changing conditions.',clear:'☀ CLEAR: No weather penalties.'};
+                rule.textContent=rules[weather.name]||'';rule.classList.toggle('active',weather.name==='rain'||weather.name==='snow');
+            }
+            const banner=document.getElementById('encounterBanner');
+            if(banner) {
+                const text=weather.name==='rain'?'WEATHER: RAIN · FIRE SUPPRESSED':weather.name==='snow'?'WEATHER: SNOW · COLD FRONT':weather.name==='overcast'?'WEATHER: OVERCAST':'STATUS: SEARCHING WASTELAND';
+                banner.innerHTML='<span class="viewport-signal mr-2"></span>'+text;
+            }
+        }
+
+        // Initialize on window load
+        window.onload = function() {
+            recalculateWeight();
+            initBoard();
+            updateHUD();
+            drawWorldCanvas();
+            placeJourneyLog();
+            setAmbientWeather();
+            setInterval(setAmbientWeather, 45000);
+            logAction("Entered Wasteland Odyssey: Last Bastion. Journey begins.");
+            window.addEventListener('resize', drawWorldCanvas);
+        };
+    </script>
+</body>
+</html>
