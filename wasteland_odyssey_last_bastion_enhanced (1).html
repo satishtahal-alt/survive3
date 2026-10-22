@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wasteland Odyssey: Last Bastion - Enhanced Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        wasteland: {
+                            900: '#060806',
+                            800: '#0e140e',
+                            700: '#162216',
+                            600: '#223322',
+                            500: '#334e33',
+                            400: '#557a55',
+                            accent: '#d97706', // Amber
+                            glow: '#10b981', // Emerald CRT
+                            danger: '#ef4444', // Red
+                            ice: '#38bdf8', // Frost
+                            fire: '#f97316', // Burn
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['"Share Tech Mono"', '"Courier New"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        /* CRT Scanlines & Visual Polish */
+        body {
+            background-color: #040504;
+            color: #d1d5db;
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+        }
+        .crt::after {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            z-index: 999;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+        }
+        .glow-amber {
+            text-shadow: 0 0 10px rgba(217, 119, 6, 0.7);
+        }
+        .glow-red {
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0e140e; }
+        ::-webkit-scrollbar-thumb { background: #223322; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334e33; }
+
+        /* Animations */
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-4px, 3px); }
+            40% { transform: translate(4px, -2px); }
+            60% { transform: translate(-3px, -3px); }
+            80% { transform: translate(3px, 2px); }
+        }
+        .shake {
+            animation: screenShake 0.4s ease-in-out;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
+        }
+        .floating-text {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.25rem;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            z-index: 50;
+        }
+        .tile-hover:hover {
+            transform: scale(1.06);
+            transition: transform 0.1s ease;
+            filter: brightness(1.2);
+        }
+        .tile-selected {
+            ring: 3px solid #d97706;
+            filter: brightness(1.3);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(217, 119, 6, 0.6);
+        }
+    </style>
+</head>
+<body class="crt min-h-screen flex flex-col select-none">
+
+    <!-- Top Header Navigation & Status Bar -->
+    <header class="bg-wasteland-800 border-b border-wasteland-600 px-4 py-3 flex flex-wrap justify-between items-center z-20 shadow-2xl">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded bg-wasteland-700 border border-wasteland-500 flex items-center justify-center text-wasteland-glow font-bold text-lg shadow-inner">☢</div>
+            <div>
+                <h1 class="text-base sm:text-lg font-bold tracking-wider text-wasteland-glow glow-text">WASTELAND ODYSSEY</h1>
+                <p class="text-[11px] text-wasteland-400">ENHANCED EDITION v2.5 <span class="ml-2 px-1.5 py-0.5 rounded bg-wasteland-600 text-amber-400 text-[10px]">INTENT & COIN HARVEST</span></p>
+            </div>
+        </div>
+
+        <!-- Quick Stats HUD -->
+        <div class="flex items-center space-x-3 sm:space-x-4 my-1 md:my-0 text-xs sm:text-sm bg-wasteland-900 px-3 py-1.5 rounded border border-wasteland-700 shadow-inner">
+            <div class="flex items-center space-x-1" title="Player Health">
+                <span class="text-red-400 font-bold">HP:</span>
+                <span id="statHp" class="text-white font-mono font-semibold">100/100</span>
+            </div>
+            <div class="text-wasteland-600">|</div>
+            <div class="flex items-center space-x-1" title="Radiation Exposure">
+                <span class="text-emerald-400 font-bold">RAD:</span>
+                <span id="statRad" class="text-emerald-300 font-mono font-semibold">0 rad</span>
+            </div>
+            <div class="text-wasteland-600">|</div>
+            <div class="flex items-center space-x-1" title="Bottle Caps">
+                <span class="text-amber-400 font-bold">CAPS:</span>
+                <span id="statCaps" class="text-amber-300 font-mono font-semibold">75</span>
+            </div>
+            <div class="text-wasteland-600">|</div>
+            <div class="flex items-center space-x-1" title="Inventory Weight">
+                <span class="text-blue-400 font-bold">WT:</span>
+                <span id="statWeight" class="text-blue-300 font-mono font-semibold">8/35kg</span>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center space-x-2">
+            <button onclick="openModal('inventoryModal')" class="px-3 py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-semibold text-white transition flex items-center space-x-1 shadow">
+                <span>🎒</span> <span class="hidden sm:inline">Inventory</span>
+            </button>
+            <button onclick="openModal('questModal')" class="px-3 py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-semibold text-amber-400 transition flex items-center space-x-1 shadow">
+                <span>📜</span> <span class="hidden sm:inline">Quest</span>
+            </button>
+            <button onclick="toggleSound()" id="soundToggleBtn" class="px-2.5 py-1.5 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs text-white transition" title="Toggle Sound">
+                🔊
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Workspace -->
+    <main class="flex-1 flex flex-col lg:flex-row p-3 gap-3 max-w-[1650px] w-full mx-auto" id="mainWorkspace">
+
+        <!-- Left Column: World Viewport, Enemy Intent & Path Choices -->
+        <div class="lg:w-5/12 flex flex-col gap-3">
+            
+            <!-- World Viewport Window (Atmospheric Canvas + Embers/Fog) -->
+            <div class="bg-wasteland-800 border-2 border-wasteland-600 rounded-lg overflow-hidden flex flex-col shadow-2xl relative">
+                <!-- Viewport Header -->
+                <div class="bg-wasteland-900 px-3 py-2 border-b border-wasteland-700 flex justify-between items-center text-xs">
+                    <span class="text-wasteland-glow font-bold tracking-wide flex items-center space-x-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-wasteland-glow animate-ping mr-1"></span>
+                        <span id="locationTitle">OUTPOST: THE RUINED HIGHWAY</span>
+                    </span>
+                    <span id="dayCounter" class="text-amber-400 font-mono">DAY 1 - 14:00</span>
+                </div>
+
+                <!-- Viewport Canvas Area -->
+                <div class="relative h-60 sm:h-68 bg-wasteland-900 flex flex-col items-center justify-center p-4 overflow-hidden border-b border-wasteland-700" id="viewportContainer">
+                    <canvas id="worldCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                    
+                    <!-- Encounter Badge -->
+                    <div id="encounterBadge" class="absolute top-3 left-3 bg-wasteland-900/90 border border-wasteland-500 px-3 py-1 rounded text-xs text-amber-300 font-mono z-10 shadow">
+                        STATUS: ACTIVE COMBAT
+                    </div>
+
+                    <!-- Breathing Enemy Sprite / Visual Node -->
+                    <div id="sceneVisual" class="z-10 text-center pointer-events-none drop-shadow-[0_0_12px_rgba(16,185,129,0.6)] font-mono text-xs sm:text-sm whitespace-pre text-wasteland-glow leading-tight transition-transform duration-500">
+                        <!-- Rendered via JS -->
+                    </div>
+
+                    <!-- Radiation Storm Warning -->
+                    <div id="stormWarning" class="absolute bottom-2 right-2 bg-red-950/80 border border-red-500 px-2.5 py-1 rounded text-[11px] text-red-300 font-bold hidden animate-pulse">
+                        ⚠️ RAD STORM ACTIVE (+5 Rad/action)
+                    </div>
+                </div>
+
+                <!-- Location Description -->
+                <div class="p-3 bg-wasteland-800/90 text-xs sm:text-sm text-wasteland-300 border-b border-wasteland-700 min-h-[65px]" id="locationDescription">
+                    You stand upon cracked asphalt surrounded by skeleton frames of pre-war vehicles. A hostile raider scout blocks your advance.
+                </div>
+
+                <!-- Enemy Intent & Status Indicator Panel -->
+                <div id="enemyIntentPanel" class="p-3 bg-wasteland-900 border-b border-wasteland-700 flex flex-col gap-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <span id="enemyNameLabel" class="text-red-400 font-bold">RAIDER SCOUT [HP: 60/60]</span>
+                        <span id="enemyStatusEffects" class="text-wasteland-400 text-[11px]">Status: None</span>
+                    </div>
+                    <div class="w-full bg-wasteland-800 h-2 rounded-full overflow-hidden border border-wasteland-700">
+                        <div id="enemyHpBar" class="bg-red-500 h-full transition-all duration-300" style="width: 100%;"></div>
+                    </div>
+                    <!-- Telegraphed Enemy Intent Banner -->
+                    <div class="flex items-center justify-between bg-wasteland-800/90 border border-amber-600/60 px-3 py-2 rounded shadow-inner text-xs">
+                        <span class="text-amber-400 font-bold flex items-center space-x-1">
+                            <span>⚡</span> <span>ENEMY INTENT:</span>
+                        </span>
+                        <span id="enemyIntentDesc" class="text-wasteland-200 font-mono font-semibold">⚔️ Heavy Strike: 14 DMG</span>
+                    </div>
+                </div>
+
+                <!-- Path Junction / Navigation Choice Bar -->
+                <div class="p-3 bg-wasteland-900 flex flex-col gap-2">
+                    <div class="text-[11px] text-wasteland-400 font-bold tracking-wider uppercase flex justify-between items-center">
+                        <span>Route Junction / Actions</span>
+                        <span id="actionBudget" class="text-amber-400 font-mono">Action Budget: 3/3</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="openPathJunctionModal()" class="py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-amber-300 transition shadow flex items-center justify-center space-x-1">
+                            <span>🗺️</span> <span>Choose Next Route</span>
+                        </button>
+                        <button onclick="triggerRest()" id="btnRest" class="py-2 bg-emerald-800 hover:bg-emerald-700 border border-emerald-500 rounded text-xs font-bold text-white transition shadow flex items-center justify-center space-x-1">
+                            <span>🏕️</span> <span>Camp / Rest (-1 Action)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Match-3 Board & Action Resolution Engine -->
+        <div class="lg:w-7/12 flex flex-col gap-3">
+            
+            <!-- Match-3 Board Container -->
+            <div class="bg-wasteland-800 border-2 border-wasteland-600 rounded-lg p-3 flex flex-col shadow-2xl relative flex-1">
+                <!-- Board Header / Legend -->
+                <div class="flex flex-wrap justify-between items-center mb-2 pb-2 border-b border-wasteland-700 gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-bold text-wasteland-glow">TACTICAL MATCH-3 SURVIVAL GRID</span>
+                        <span id="boardContextBadge" class="text-[10px] px-2 py-0.5 rounded bg-wasteland-700 text-amber-300 font-mono">COMBAT POOL</span>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs">
+                        <span class="text-amber-300 text-[11px]" title="Match Shield tiles to harvest coin tokens 🪙 on the board!">🛡️ Shield matches harvest 🪙</span>
+                        <button onclick="reshuffleBoard()" class="px-2.5 py-1 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs text-wasteland-300 transition">
+                            🔀 Reshuffle (-1 Action)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tile Pool Legend Bar -->
+                <div id="tileLegend" class="flex flex-wrap gap-2 mb-2 text-[11px] bg-wasteland-900 px-2.5 py-1.5 rounded border border-wasteland-700 items-center justify-between">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- The 8x8 Match-3 Grid -->
+                <div class="flex-1 flex items-center justify-center py-2 relative" id="boardWrapper">
+                    <div id="matchBoard" class="grid grid-cols-8 gap-1.5 sm:gap-2 bg-wasteland-900 p-3 rounded-lg border-2 border-wasteland-700 shadow-inner max-w-full aspect-square relative">
+                        <!-- Tiles generated via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Match Feedback / Action Log -->
+                <div class="mt-2 bg-wasteland-900 rounded p-2 border border-wasteland-700 text-xs h-16 overflow-y-auto font-mono flex flex-col-reverse" id="actionLog">
+                    <div class="text-wasteland-400">Match 3+ tactical tiles. Watch enemy intents and match Shields to harvest 🪙 coin tokens!</div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modals -->
+
+    <!-- Path Junction Modal -->
+    <div id="pathJunctionModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wasteland-800 border-2 border-amber-500 rounded-lg max-w-xl w-full p-5 flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center border-b border-wasteland-600 pb-2 mb-3">
+                <h2 class="text-base font-bold text-amber-400 flex items-center space-x-2">
+                    <span>🗺️</span> <span>CHOOSE YOUR NEXT ROUTE JUNCTION</span>
+                </h2>
+                <button onclick="closeModal('pathJunctionModal')" class="text-wasteland-400 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+            
+            <p class="text-xs text-wasteland-300 mb-4 font-mono">The cracked highway splits ahead. Choose your tactical path wisely based on your current survival needs:</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="pathJunctionChoices">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="mt-4 pt-2 border-t border-wasteland-600 flex justify-end">
+                <button onclick="closeModal('pathJunctionModal')" class="px-4 py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-white transition">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div id="inventoryModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wasteland-800 border-2 border-wasteland-500 rounded-lg max-w-2xl w-full p-4 flex flex-col shadow-2xl max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-wasteland-600 pb-2 mb-3">
+                <h2 class="text-base font-bold text-wasteland-glow flex items-center space-x-2">
+                    <span>🎒</span> <span>SURVIVOR INVENTORY & EQUIPMENT</span>
+                </h2>
+                <button onclick="closeModal('inventoryModal')" class="text-wasteland-400 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto flex-1 pr-1">
+                <div class="bg-wasteland-900 p-3 rounded border border-wasteland-700 flex flex-col gap-2">
+                    <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wide border-b border-wasteland-700 pb-1">Equipped Gear</h3>
+                    <div id="equippedList" class="flex flex-col gap-2 text-xs"></div>
+                </div>
+                <div class="bg-wasteland-900 p-3 rounded border border-wasteland-700 flex flex-col gap-2">
+                    <div class="flex justify-between items-center border-b border-wasteland-700 pb-1">
+                        <h3 class="text-xs font-bold text-wasteland-glow uppercase tracking-wide">Backpack</h3>
+                        <span id="invCapacity" class="text-xs text-wasteland-400 font-mono">8 / 35 kg</span>
+                    </div>
+                    <div id="inventoryList" class="flex flex-col gap-2 text-xs overflow-y-auto max-h-60"></div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-2 border-t border-wasteland-600 flex justify-end">
+                <button onclick="closeModal('inventoryModal')" class="px-4 py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-white transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quest Modal -->
+    <div id="questModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wasteland-800 border-2 border-wasteland-500 rounded-lg max-w-xl w-full p-4 flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center border-b border-wasteland-600 pb-2 mb-3">
+                <h2 class="text-base font-bold text-amber-400 flex items-center space-x-2">
+                    <span>📜</span> <span>QUEST: THE RELAY BEACON</span>
+                </h2>
+                <button onclick="closeModal('questModal')" class="text-wasteland-400 hover:text-white text-lg font-bold px-2">✕</button>
+            </div>
+            
+            <div class="space-y-3 text-xs sm:text-sm text-wasteland-300 max-h-[60vh] overflow-y-auto" id="questContent"></div>
+
+            <div class="mt-4 pt-2 border-t border-wasteland-600 flex justify-between items-center">
+                <span id="questStatusSummary" class="text-xs text-amber-300 font-mono">Objective Progress: 3/5</span>
+                <button onclick="closeModal('questModal')" class="px-4 py-2 bg-wasteland-700 hover:bg-wasteland-600 border border-wasteland-500 rounded text-xs font-bold text-white transition">
+                    Return
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="gameOverModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wasteland-800 border-2 border-red-500 rounded-lg max-w-md w-full p-6 flex flex-col items-center text-center shadow-2xl">
+            <div id="gameOverIcon" class="text-5xl mb-3 animate-bounce">💀</div>
+            <h2 id="gameOverTitle" class="text-xl font-bold text-red-400 tracking-wider mb-2">SURVIVOR PERISHED</h2>
+            <p id="gameOverDesc" class="text-xs sm:text-sm text-wasteland-300 mb-6 font-mono">You succumbed to the harsh wasteland hazards.</p>
+            <div id="runSummaryStats" class="w-full bg-wasteland-900 p-3 rounded border border-wasteland-700 text-xs text-left mb-6 font-mono space-y-1"></div>
+            <button onclick="restartGame()" class="w-full py-3 bg-red-800 hover:bg-red-700 border border-red-500 rounded text-sm font-bold text-white transition shadow-lg">
+                🔄 START NEW RUN
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="fixed bottom-6 right-6 bg-wasteland-900 border-2 border-wasteland-glow text-wasteland-glow px-4 py-2.5 rounded shadow-2xl text-xs font-mono z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-2">
+        <span id="toastIcon">✨</span>
+        <span id="toastText">Action completed.</span>
+    </div>
+
+    <!-- JavaScript Game Engine -->
+    <script>
+        /* ==========================================================
+           1. WEB AUDIO API SYNTHESIZER
+           ========================================================== */
+        let soundEnabled = true;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(frequency, type, duration, gainValue = 0.1) {
+            if (!soundEnabled) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = frequency;
+                gain.gain.setValueAtTime(gainValue, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        const soundFX = {
+            swap: () => playTone(320, 'triangle', 0.08, 0.04),
+            match: () => { playTone(523.25, 'sine', 0.12, 0.08); setTimeout(() => playTone(659.25, 'sine', 0.12, 0.08), 70); },
+            cascade: () => { playTone(783.99, 'square', 0.18, 0.06); },
+            attack: () => { playTone(110, 'sawtooth', 0.22, 0.12); },
+            shield: () => { playTone(440, 'sine', 0.18, 0.08); },
+            heal: () => { playTone(587.33, 'triangle', 0.25, 0.1); },
+            burn: () => { playTone(220, 'sawtooth', 0.2, 0.1); },
+            freeze: () => { playTone(880, 'sine', 0.2, 0.08); },
+            coin: () => { playTone(987.77, 'sine', 0.15, 0.1); },
+            click: () => playTone(220, 'sine', 0.04, 0.03),
+            win: () => { playTone(523.25, 'triangle', 0.3, 0.12); setTimeout(() => playTone(783.99, 'triangle', 0.5, 0.15), 200); },
+            gameOver: () => { playTone(140, 'sawtooth', 0.5, 0.2); setTimeout(() => playTone(90, 'sawtooth', 0.7, 0.25), 300); }
+        };
+
+        let gameState = {
+            hp: 100,
+            maxHp: 100,
+            rads: 0,
+            caps: 75,
+            weight: 8,
+            maxWeight: 35,
+            day: 1,
+            hour: 14,
+            actionBudget: 3,
+            maxActionBudget: 3,
+            locationIndex: 0,
+            currentEncounterType: 'combat',
+            encounterState: {
+                active: true,
+                title: "RAIDER SCOUT AMBUSH",
+                description: "A hostile raider scout blocks the road.",
+                targetName: "RAIDER SCOUT",
+                targetHp: 60,
+                targetMaxHp: 60,
+                targetDef: 4,
+                rewardCaps: 30,
+                intent: { type: 'attack', name: 'Heavy Strike', dmg: 14, desc: 'Deals 14 physical damage', icon: '⚔️' },
+                status: { burn: 0, freeze: 0, poison: 0, armorBreak: 0 }
+            },
+            quest: {
+                title: "The Relay Beacon",
+                step: 3,
+                maxStep: 5,
+                objectives: [
+                    "Scavenge pre-war highway debris",
+                    "Survive toxic raider barricade",
+                    "Repair Radio Vacuum Tube (3/5)",
+                    "Cross Radiation Storm Zone",
+                    "Transmit final distress beacon"
+                ]
+            },
+            equipped: {
+                weapon: { id: 'machete', name: 'Rust Machete', type: 'weapon', atk: 8, element: 'none', icon: '🗡️' },
+                armor: { id: 'kevlar', name: 'Kevlar Vest', type: 'armor', def: 5, icon: '🛡️' },
+                backpack: { id: 'ruck', name: 'Tactical Rucksack', type: 'backpack', maxWeight: 35, icon: '🎒' }
+            },
+            inventory: [
+                { id: 'stimpak', name: 'Stimpak', type: 'consumable', value: 40, weight: 1, count: 3, icon: '💉', desc: 'Restores 40 HP' },
+                { id: 'radaway', name: 'Rad-Away', type: 'consumable', value: 30, weight: 1, count: 2, icon: '🧪', desc: 'Removes 30 Radiation' },
+                { id: 'cannedfood', name: 'Canned Beans', type: 'consumable', value: 25, weight: 1, count: 4, icon: '🥫', desc: 'Restores health & hunger' },
+                { id: 'radio_part', name: 'Radio Vacuum Tube', type: 'quest', weight: 1, count: 3, icon: '📻', desc: 'Needed for beacon repair' }
+            ]
+        };
+
+        const TILE_TYPES = {
+            sword: { id: 'sword', name: 'Blade', icon: '🗡️', color: 'bg-red-950/80 border-red-600 text-red-400', category: 'weapon' },
+            fire: { id: 'fire', name: 'Fire', icon: '🔥', color: 'bg-orange-950/80 border-orange-600 text-orange-400', category: 'elemental' },
+            frost: { id: 'frost', name: 'Frost', icon: '❄️', color: 'bg-sky-950/80 border-sky-600 text-sky-400', category: 'elemental' },
+            shield: { id: 'shield', name: 'Shield', icon: '🛡️', color: 'bg-blue-950/80 border-blue-600 text-blue-400', category: 'defense' },
+            heal: { id: 'heal', name: 'Heal', icon: '➕', color: 'bg-emerald-950/80 border-emerald-600 text-emerald-400', category: 'healing' },
+            food: { id: 'food', name: 'Supplies', icon: '🥫', color: 'bg-yellow-950/80 border-yellow-600 text-yellow-400', category: 'supplies' },
+            scrap: { id: 'scrap', name: 'Scrap', icon: '⚙️', color: 'bg-stone-800/80 border-stone-600 text-stone-300', category: 'scavenging' }
+        };
+
+        const TILE_POOLS = {
+            combat: ['sword', 'fire', 'frost', 'shield', 'heal', 'food', 'scrap'],
+            safe: ['scrap', 'food', 'scrap'],
+            trader: ['scrap', 'food', 'heal'],
+            hazard: ['heal', 'shield', 'food', 'scrap', 'fire']
+        };
+
+        const BOARD_SIZE = 8;
+        let board = []; // 2D array of { type: string, coin: boolean }
+        let selectedTile = null;
+        let isAnimating = false;
+        let comboStreak = 0;
+
+        /* ==========================================================
+           3. VIEWPORT CANVAS RENDERING & PARTICLE SYSTEM
+           ========================================================== */
+        let particles = [];
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < 35; i++) {
+                particles.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * 300,
+                    size: Math.random() * 2.5 + 1,
+                    speedY: Math.random() * 0.6 + 0.2,
+                    speedX: (Math.random() - 0.5) * 0.4,
+                    alpha: Math.random() * 0.7 + 0.2,
+                    isRad: Math.random() > 0.7
+                });
+            }
+        }
+
+        function drawWorldCanvas() {
+            const canvas = document.getElementById('worldCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Sky background gradient
+            let grad = ctx.createLinearGradient(0, 0, 0, canvas.height / 2);
+            grad.addColorStop(0, '#0a0e0a');
+            grad.addColorStop(1, '#162216');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
+
+            // Ground
+            ctx.fillStyle = '#0a0c0a';
+            ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
+
+            // Perspective Road
+            let cx = canvas.width / 2;
+            let cy = canvas.height / 2;
+
+            ctx.strokeStyle = '#1a261a';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx - 150, canvas.height);
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + 150, canvas.height);
+            ctx.stroke();
+
+            // Center dashes
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 12]);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw floating particles (Ash / Radiation embers)
+            particles.forEach(p => {
+                p.y -= p.speedY;
+                p.x += p.speedX;
+                if (p.y < 0) { p.y = canvas.height; p.x = Math.random() * canvas.width; }
+                
+                ctx.fillStyle = p.isRad ? `rgba(16, 185, 129, ${p.alpha})` : `rgba(180, 150, 100, ${p.alpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Update Scene Visual Sprite
+            updateSceneVisualText();
+        }
+
+        function updateSceneVisualText() {
+            const visual = document.getElementById('sceneVisual');
+            if (gameState.currentEncounterType === 'combat') {
+                visual.textContent = 
+`      [ 👾 HOSTILE ENEMY ]
+        /| ⚔️ |\\
+       / |     | \\
+     === RAIDER THUG ===`;
+            } else if (gameState.currentEncounterType === 'safe') {
+                visual.textContent = 
+`      [ 🔐 SECURE VAULT ]
+       [▓▓▓▓▓▓▓▓▓▓]
+       [ 🔓 LOOT CACHE ]`;
+            } else if (gameState.currentEncounterType === 'trader') {
+                visual.textContent = 
+`      [ ⛺ TRADER CARAVAN ]
+        ___/|___
+       /  [🪙]  \\
+      | NOMAD TENT |`;
+            } else {
+                visual.textContent = 
+`      [ ☢️ HAZARD STORM ]
+      ~~~~~ * * ~~~~~
+      RADIOACTIVE WINDS`;
+            }
+        }
+
+        /* ==========================================================
+           4. MATCH-3 BOARD & COIN TOKEN MECHANIC
+           ========================================================== */
+        function initBoard(coinCount = 3) {
+            const pool = TILE_POOLS[gameState.currentEncounterType] || TILE_POOLS.combat;
+            board = [];
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                let row = [];
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    let tileType;
+                    do {
+                        tileType = pool[Math.floor(Math.random() * pool.length)];
+                    } while (
+                        (c >= 2 && row[c-1].type === tileType && row[c-2].type === tileType) ||
+                        (r >= 2 && board[r-1][c].type === tileType && board[r-2][c].type === tileType)
+                    );
+                    row.push({ type: tileType, coin: false });
+                }
+                board.push(row);
+            }
+
+            // Scatter physical coin tokens onto random grid cells
+            scatterCoins(coinCount);
+            renderBoard();
+            updateTileLegend();
+            updateEnemyIntentDisplay();
+        }
+
+        function scatterCoins(count = 3) {
+            let placed = 0;
+            while (placed < count) {
+                let r = Math.floor(Math.random() * BOARD_SIZE);
+                let c = Math.floor(Math.random() * BOARD_SIZE);
+                if (!board[r][c].coin) {
+                    board[r][c].coin = true;
+                    placed++;
+                }
+            }
+        }
+
+        function updateTileLegend() {
+            const pool = TILE_POOLS[gameState.currentEncounterType] || TILE_POOLS.combat;
+            const container = document.getElementById('tileLegend');
+            container.innerHTML = pool.map(typeKey => {
+                const t = TILE_TYPES[typeKey];
+                return `<div class="flex items-center space-x-1" title="${t.name}"><span>${t.icon}</span> <span class="text-wasteland-300">${t.name}</span></div>`;
+            }).join('') + `<div class="flex items-center space-x-1 text-amber-400 font-semibold" title="Coin Token"><span>🪙</span> <span>Coin Token</span></div>`;
+            document.getElementById('boardContextBadge').textContent = gameState.currentEncounterType.toUpperCase() + ' POOL';
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('matchBoard');
+            boardEl.innerHTML = '';
+            
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    let cell = board[r][c];
+                    let t = TILE_TYPES[cell.type] || TILE_TYPES.scrap;
+                    let tileDiv = document.createElement('div');
+                    tileDiv.className = `aspect-square rounded flex items-center justify-center text-xl sm:text-2xl border cursor-pointer transition-all duration-150 tile-hover ${t.color} ${selectedTile && selectedTile.r === r && selectedTile.c === c ? 'tile-selected ring-2 ring-amber-400' : ''} relative`;
+                    
+                    // Render base tile icon
+                    let innerHTML = `<span>${t.icon}</span>`;
+                    
+                    // Render coin token overlay badge if present on this cell
+                    if (cell.coin) {
+                        innerHTML += `<span class="absolute -top-1 -right-1 text-xs bg-amber-950 border border-amber-500 rounded-full w-5 h-5 flex items-center justify-center shadow animate-pulse">🪙</span>`;
+                    }
+
+                    tileDiv.innerHTML = innerHTML;
+                    tileDiv.onclick = () => handleTileClick(r, c);
+                    boardEl.appendChild(tileDiv);
+                }
+            }
+        }
+
+        function handleTileClick(r, c) {
+            if (isAnimating) return;
+            soundFX.click();
+
+            if (!selectedTile) {
+                selectedTile = { r, c };
+                renderBoard();
+            } else {
+                let dr = Math.abs(selectedTile.r - r);
+                let dc = Math.abs(selectedTile.c - c);
+                if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+                    swapTiles(selectedTile.r, selectedTile.c, r, c);
+                    selectedTile = null;
+                } else {
+                    selectedTile = { r, c };
+                    renderBoard();
+                }
+            }
+        }
+
+        function swapTiles(r1, c1, r2, c2) {
+            soundFX.swap();
+            let temp = board[r1][c1];
+            board[r1][c1] = board[r2][c2];
+            board[r2][c2] = temp;
+            renderBoard();
+
+            let matches = findMatches();
+            if (matches.length > 0) {
+                comboStreak = 0;
+                processMatches(matches);
+            } else {
+                setTimeout(() => {
+                    let temp = board[r1][c1];
+                    board[r1][c1] = board[r2][c2];
+                    board[r2][c2] = temp;
+                    renderBoard();
+                    showToast("Invalid move (no match formed)", "⚠️");
+                }, 140);
+            }
+        }
+
+        function findMatches() {
+            let matchedCoords = new Set();
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE - 2; c++) {
+                    let val = board[r][c].type;
+                    if (!val) continue;
+                    let len = 1;
+                    while (c + len < BOARD_SIZE && board[r][c + len].type === val) len++;
+                    if (len >= 3) {
+                        for (let i = 0; i < len; i++) matchedCoords.add(`${r},${c + i}`);
+                    }
+                }
+            }
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                for (let r = 0; r < BOARD_SIZE - 2; r++) {
+                    let val = board[r][c].type;
+                    if (!val) continue;
+                    let len = 1;
+                    while (r + len < BOARD_SIZE && board[r + len][c].type === val) len++;
+                    if (len >= 3) {
+                        for (let i = 0; i < len; i++) matchedCoords.add(`${r + i},${c}`);
+                    }
+                }
+            }
+            return Array.from(matchedCoords).map(coord => {
+                let p = coord.split(',');
+                return { r: parseInt(p[0]), c: parseInt(p[1]) };
+            });
+        }
+
+        async function processMatches(matches, cascadeCount = 0) {
+            isAnimating = true;
+            comboStreak++;
+            
+            if (cascadeCount === 0) {
+                soundFX.match();
+            } else {
+                soundFX.cascade();
+                showComboPopup(cascadeCount + 1);
+            }
+
+            let counts = {};
+            let collectedCoins = 0;
+            let shieldMatched = false;
+
+            matches.forEach(m => {
+                let cell = board[m.r][m.c];
+                counts[cell.type] = (counts[cell.type] || 0) + 1;
+                
+                // Collect coin if present on matched tile
+                if (cell.coin) {
+                    collectedCoins += 10;
+                    cell.coin = false;
+                }
+
+                if (cell.type === 'shield') {
+                    shieldMatched = true;
+                }
+
+                board[m.r][m.c] = { type: null, coin: false };
+            });
+
+            // Special Strategic Rule: Matching 3+ Shields harvests coins across the entire matched rows/columns!
+            if (shieldMatched) {
+                matches.forEach(m => {
+                    // Harvest coins in this row
+                    for (let colIdx = 0; colIdx < BOARD_SIZE; colIdx++) {
+                        if (board[m.r][colIdx].coin) {
+                            collectedCoins += 10;
+                            board[m.r][colIdx].coin = false;
+                        }
+                    }
+                });
+            }
+
+            if (collectedCoins > 0) {
+                gameState.caps += collectedCoins;
+                soundFX.coin();
+                showFloatingText(`+${collectedCoins} 🪙`, "text-amber-400");
+                logAction(`🛡️ Shield line-up harvested +${collectedCoins} bottle caps from board tokens!`);
+            }
+
+            renderBoard();
+            applyMatchEffects(counts, matches.length, cascadeCount);
+
+            await new Promise(res => setTimeout(res, 280));
+            applyGravity();
+            renderBoard();
+
+            let newMatches = findMatches();
+            if (newMatches.length > 0) {
+                await new Promise(res => setTimeout(res, 180));
+                processMatches(newMatches, cascadeCount + 1);
+            } else {
+                isAnimating = false;
+                executeEnemyTurn();
+            }
+        }
+
+        function applyGravity() {
+            const pool = TILE_POOLS[gameState.currentEncounterType] || TILE_POOLS.combat;
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                let writeRow = BOARD_SIZE - 1;
+                for (let r = BOARD_SIZE - 1; r >= 0; r--) {
+                    if (board[r][c].type !== null) {
+                        board[writeRow][c] = { ...board[r][c] };
+                        if (writeRow !== r) board[r][c] = { type: null, coin: false };
+                        writeRow--;
+                    }
+                }
+                for (let r = writeRow; r >= 0; r--) {
+                    let randomType = pool[Math.floor(Math.random() * pool.length)];
+                    // Small chance for new falling tiles to also carry a coin token
+                    let hasCoinToken = Math.random() < 0.08;
+                    board[r][c] = { type: randomType, coin: hasCoinToken };
+                }
+            }
+        }
+
+        function reshuffleBoard() {
+            if (gameState.actionBudget <= 0) {
+                showToast("No action budget remaining!", "⚠️");
+                return;
+            }
+            gameState.actionBudget--;
+            updateHUD();
+            initBoard(3);
+            showToast("Board reshuffled (-1 Action)", "🔀");
+            logAction("Reshuffled match-3 grid.");
+        }
+
+        /* ==========================================================
+           5. ENEMY INTENT TELEGRAPHING & COMBAT SYSTEM
+           ========================================================== */
+        function generateNextEnemyIntent() {
+            if (gameState.currentEncounterType !== 'combat') return;
+            const intents = [
+                { type: 'attack', name: 'Heavy Strike', dmg: 12 + Math.floor(gameState.locationIndex * 3), desc: 'Deals heavy physical damage', icon: '⚔️' },
+                { type: 'shield', name: 'Shield Bash', dmg: 8 + Math.floor(gameState.locationIndex * 2), desc: 'Strikes and reinforces enemy armor (+3 Def)', icon: '🛡️' },
+                { type: 'poison', name: 'Toxic Spores', dmg: 9, desc: 'Deals damage and increases radiation/toxicity', icon: '☣️' },
+                { type: 'debuff', name: 'Armor Shred', dmg: 10, desc: 'Heavy strike that penetrates defensive barriers', icon: '⚡' }
+            ];
+            gameState.encounterState.intent = intents[Math.floor(Math.random() * intents.length)];
+            updateEnemyIntentDisplay();
+        }
+
+        function updateEnemyIntentDisplay() {
+            const intent = gameState.encounterState.intent;
+            const el = document.getElementById('enemyIntentDesc');
+            if (el && intent) {
+                el.innerHTML = `<span class="text-amber-400 font-bold">${intent.icon} ${intent.name}:</span> <span class="text-wasteland-200">${intent.desc} (<span class="text-red-400 font-bold">${intent.dmg} DMG</span>)</span>`;
+            }
+        }
+
+        function applyMatchEffects(counts, totalTiles, cascade) {
+            let logMsg = `Matched ${totalTiles} tiles`;
+            if (cascade > 0) logMsg += ` (Combo x${cascade + 1})`;
+
+            // Weapons
+            let baseAtk = gameState.equipped.weapon.atk || 8;
+            let swordDmg = (counts.sword || 0) * baseAtk;
+            let fireDmg = (counts.fire || 0) * 8;
+            let frostDmg = (counts.frost || 0) * 7;
+            let totalDmg = swordDmg + fireDmg + frostDmg;
+
+            // Apply Elemental Synergies
+            if ((counts.fire || 0) > 0) {
+                gameState.encounterState.status.burn += (counts.fire || 0);
+                soundFX.burn();
+                logMsg += ` | Applied Burn (${gameState.encounterState.status.burn} stacks)!`;
+                showFloatingText("+ BURN", "text-orange-400");
+            }
+            if ((counts.frost || 0) > 0) {
+                gameState.encounterState.status.freeze = 1;
+                soundFX.freeze();
+                logMsg += ` | Applied Freeze (Enemy slowed)!`;
+                showFloatingText("+ FREEZE", "text-sky-400");
+            }
+
+            if (totalDmg > 0 && gameState.currentEncounterType === 'combat') {
+                soundFX.attack();
+                triggerScreenShake();
+                
+                let finalDmg = Math.max(4, totalDmg - (gameState.encounterState.targetDef || 0));
+                gameState.encounterState.targetHp -= finalDmg;
+                logMsg += ` | Dealt ${finalDmg} dmg!`;
+                showFloatingText(`-${finalDmg} DMG`, "text-red-400");
+
+                if (gameState.encounterState.targetHp <= 0) {
+                    gameState.encounterState.targetHp = 0;
+                    winCombatEncounter();
+                    return;
+                }
+            }
+
+            // Defense
+            let shieldVal = (counts.shield || 0) * 6;
+            if (shieldVal > 0) {
+                soundFX.shield();
+                logMsg += ` | Gained +${shieldVal} Shield!`;
+                showFloatingText(`+${shieldVal} SHIELD`, "text-blue-400");
+            }
+
+            // Healing
+            let healVal = (counts.heal || 0) * 9;
+            if (healVal > 0) {
+                soundFX.heal();
+                gameState.hp = Math.min(gameState.maxHp, gameState.hp + healVal);
+                logMsg += ` | Restored ${healVal} HP!`;
+                showFloatingText(`+${healVal} HP`, "text-emerald-400");
+            }
+
+            logAction(logMsg);
+            updateHUD();
+        }
+
+        function executeEnemyTurn() {
+            if (gameState.currentEncounterType !== 'combat' || gameState.encounterState.targetHp <= 0) return;
+
+            let enc = gameState.encounterState;
+            let intent = enc.intent;
+            
+            // Handle Burn status DOT
+            if (enc.status.burn > 0) {
+                let burnDmg = enc.status.burn * 4;
+                enc.targetHp -= burnDmg;
+                enc.status.burn--;
+                logAction(`🔥 Burn dealt ${burnDmg} damage to enemy!`);
+                showFloatingText(`-${burnDmg} BURN`, "text-orange-400");
+                if (enc.targetHp <= 0) {
+                    winCombatEncounter();
+                    return;
+                }
+            }
+
+            // Handle Freeze
+            if (enc.status.freeze > 0) {
+                enc.status.freeze--;
+                logAction(`❄️ Enemy is frozen and cannot execute intent this turn!`);
+                showFloatingText("FROZEN", "text-sky-400");
+                updateHUD();
+                generateNextEnemyIntent();
+                return;
+            }
+
+            // Execute Telegraphed Intent
+            let incomingDmg = intent.dmg;
+            let playerArmor = gameState.equipped.armor.def || 5;
+            let actualDmg = Math.max(3, incomingDmg - playerArmor);
+
+            if (intent.type === 'shield') {
+                enc.targetDef += 3;
+            } else if (intent.type === 'poison') {
+                gameState.rads += 8;
+            }
+            
+            gameState.hp -= actualDmg;
+            soundFX.attack();
+            triggerScreenShake();
+            logAction(`⚠️ Enemy executed ${intent.name}: dealt ${actualDmg} damage!`);
+            showFloatingText(`-${actualDmg} HP`, "text-red-500");
+
+            if (gameState.hp <= 0) {
+                gameState.hp = 0;
+                triggerGameOver(false);
+                return;
+            }
+
+            updateHUD();
+            // Roll a NEW intent for the following turn so the player can strategize
+            generateNextEnemyIntent();
+        }
+
+        function winCombatEncounter() {
+            soundFX.win();
+            let rewardCaps = gameState.encounterState.rewardCaps || 40;
+            gameState.caps += rewardCaps;
+            showToast(`Victory! Looted +${rewardCaps} bottle caps.`, "🏆");
+            logAction(`VICTORY: Defeated enemy! Looted ${rewardCaps} caps.`);
+            
+            if (gameState.quest.step === 2) gameState.quest.step = 3;
+
+            setTimeout(() => {
+                openPathJunctionModal();
+            }, 1000);
+        }
+
+        /* ==========================================================
+           6. PATH JUNCTION & WORLD NAVIGATION
+           ========================================================== */
+        function openPathJunctionModal() {
+            soundFX.click();
+            const container = document.getElementById('pathJunctionChoices');
+            
+            const choices = [
+                { type: 'combat', title: 'Raider Blockade', desc: 'High-threat combat encounter with valuable gear & scattered coin tokens.', icon: '⚔️', color: 'border-red-600 bg-red-950/40 text-red-300' },
+                { type: 'safe', title: 'Abandoned Depot', desc: 'Search containers, safes, and secure pre-war supply caches.', icon: '🔓', color: 'border-amber-600 bg-amber-950/40 text-amber-300' },
+                { type: 'hazard', title: 'Radiation Storm Bypass', desc: 'Risky shortcut. Exposes you to radiation but skips combat.', icon: '☢️', color: 'border-emerald-600 bg-emerald-950/40 text-emerald-300' }
+            ];
+
+            container.innerHTML = choices.map(c => `
+                <div onclick="selectPathJunction('${c.type}')" class="border-2 ${c.color} p-4 rounded-lg cursor-pointer hover:scale-105 transition flex flex-col items-center text-center shadow-lg">
+                    <span class="text-3xl mb-2">${c.icon}</span>
+                    <h3 class="font-bold text-sm mb-1">${c.title}</h3>
+                    <p class="text-[11px] text-wasteland-300">${c.desc}</p>
+                </div>
+            `).join('');
+
+            document.getElementById('pathJunctionModal').classList.remove('hidden');
+        }
+
+        function selectPathJunction(type) {
+            closeModal('pathJunctionModal');
+            gameState.locationIndex++;
+            gameState.actionBudget = gameState.maxActionBudget;
+            gameState.hour += 3;
+            if (gameState.hour >= 24) { gameState.hour -= 24; gameState.day++; }
+
+            if (type === 'combat') {
+                gameState.currentEncounterType = 'combat';
+                gameState.encounterState = {
+                    active: true,
+                    title: "RAIDER ENCLAVE",
+                    description: "Armed thugs patrol this sector.",
+                    targetName: "RAIDER ENFORCER",
+                    targetHp: 80 + (gameState.locationIndex * 15),
+                    targetMaxHp: 80 + (gameState.locationIndex * 15),
+                    targetDef: 6,
+                    rewardCaps: 50,
+                    intent: { type: 'attack', name: 'Heavy Smash', dmg: 16, desc: 'Deals massive smash damage', icon: '⚔️' },
+                    status: { burn: 0, freeze: 0, poison: 0, armorBreak: 0 }
+                };
+                document.getElementById('locationTitle').textContent = "LOCATION: RAIDER ENCLAVE SECTOR";
+                document.getElementById('locationDescription').textContent = "Heavily fortified wasteland sector patrolled by raider enforcers.";
+                document.getElementById('enemyNameLabel').textContent = `RAIDER ENFORCER [HP: ${gameState.encounterState.targetHp}]`;
+                generateNextEnemyIntent();
+            } else if (type === 'safe') {
+                gameState.currentEncounterType = 'safe';
+                gameState.encounterState = { active: false };
+                gameState.caps += 40;
+                addInventoryItem('scrap', 'Metal Scrap', 'material', 2, 4, '⚙️', 'Scavenged hardware');
+                document.getElementById('locationTitle').textContent = "LOCATION: ABANDONED SUPPLY DEPOT";
+                document.getElementById('locationDescription').textContent = "You searched the lockers and recovered valuable salvage and +40 caps!";
+                showToast("Searched depot successfully (+40 caps, +4 Scrap)", "🔓");
+            } else {
+                gameState.currentEncounterType = 'hazard';
+                gameState.rads += 20;
+                gameState.caps += 30;
+                document.getElementById('locationTitle').textContent = "LOCATION: RADIATION STORM PASS";
+                document.getElementById('locationDescription').textContent = "You braved the toxic storm (+20 Rads) but found hidden bottle caps.";
+                showToast("Passed storm (+20 Rads accumulated)", "☢️");
+            }
+
+            initBoard(4); // Scatter 4 coin tokens on new encounter
+            updateHUD();
+            drawWorldCanvas();
+        }
+
+        function triggerRest() {
+            if (gameState.actionBudget <= 0) {
+                showToast("No action budget remaining!", "⚠️");
+                return;
+            }
+            gameState.actionBudget--;
+            let healAmt = 30;
+            gameState.hp = Math.min(gameState.maxHp, gameState.hp + healAmt);
+            gameState.rads = Math.max(0, gameState.rads - 15);
+            soundFX.heal();
+            showToast(`Camp Rest: +${healAmt} HP, -15 Rads.`, "🏕️");
+            logAction(`Set up camp. Restored ${healAmt} HP.`);
+            updateHUD();
+        }
+
+        /* ==========================================================
+           7. INVENTORY & QUEST SYSTEM
+           ========================================================== */
+        function addInventoryItem(id, name, type, weight, count, icon, desc) {
+            let existing = gameState.inventory.find(i => i.id === id);
+            if (existing) existing.count += count;
+            else gameState.inventory.push({ id, name, type, weight, count, icon, desc: desc || '' });
+            recalculateWeight();
+        }
+
+        function recalculateWeight() {
+            let total = 0;
+            gameState.inventory.forEach(i => total += (i.weight * i.count));
+            gameState.weight = parseFloat(total.toFixed(1));
+            document.getElementById('statWeight').textContent = `${gameState.weight}/${gameState.equipped.backpack.maxWeight}kg`;
+        }
+
+        function renderInventoryModal() {
+            const eqList = document.getElementById('equippedList');
+            eqList.innerHTML = `
+                <div class="flex justify-between items-center bg-wasteland-800 p-2 rounded border border-wasteland-700">
+                    <span class="flex items-center space-x-2"><span>${gameState.equipped.weapon.icon}</span> <span>Weapon: <b>${gameState.equipped.weapon.name}</b> (+${gameState.equipped.weapon.atk} Atk)</span></span>
+                    <span class="text-amber-400 text-xs">Equipped</span>
+                </div>
+                <div class="flex justify-between items-center bg-wasteland-800 p-2 rounded border border-wasteland-700">
+                    <span class="flex items-center space-x-2"><span>${gameState.equipped.armor.icon}</span> <span>Armor: <b>${gameState.equipped.armor.name}</b> (+${gameState.equipped.armor.def} Def)</span></span>
+                    <span class="text-amber-400 text-xs">Equipped</span>
+                </div>
+            `;
+
+            const invList = document.getElementById('inventoryList');
+            if (gameState.inventory.length === 0) {
+                invList.innerHTML = `<div class="text-wasteland-400 italic">Inventory is empty.</div>`;
+                return;
+            }
+
+            invList.innerHTML = gameState.inventory.map((item, idx) => `
+                <div class="flex justify-between items-center bg-wasteland-800 p-2 rounded border border-wasteland-700">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-lg">${item.icon}</span>
+                        <div>
+                            <div class="font-bold text-white">${item.name} <span class="text-wasteland-400 font-normal">x${item.count}</span></div>
+                            <div class="text-[10px] text-wasteland-400">${item.desc}</div>
+                        </div>
+                    </div>
+                    <div>
+                        ${item.type === 'consumable' ? `<button onclick="useConsumable(${idx})" class="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-700 rounded text-xs text-white font-semibold transition">Use</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('invCapacity').textContent = `${gameState.weight} / ${gameState.equipped.backpack.maxWeight} kg`;
+        }
+
+        function useConsumable(idx) {
+            let item = gameState.inventory[idx];
+            if (!item || item.type !== 'consumable') return;
+
+            if (item.id === 'stimpak') {
+                gameState.hp = Math.min(gameState.maxHp, gameState.hp + item.value);
+                soundFX.heal();
+                showToast("Used Stimpak: +40 HP", "💉");
+            } else if (item.id === 'radaway') {
+                gameState.rads = Math.max(0, gameState.rads - item.value);
+                soundFX.heal();
+                showToast("Used Rad-Away: -30 Radiation", "🧪");
+            } else {
+                gameState.hp = Math.min(gameState.maxHp, gameState.hp + 20);
+                soundFX.heal();
+                showToast("Ate Canned Food: +20 HP", "🥫");
+            }
+
+            item.count--;
+            if (item.count <= 0) gameState.inventory.splice(idx, 1);
+            recalculateWeight();
+            renderInventoryModal();
+            updateHUD();
+        }
+
+        function renderQuestModal() {
+            const qEl = document.getElementById('questContent');
+            qEl.innerHTML = gameState.quest.objectives.map((obj, idx) => `
+                <div class="flex items-start space-x-2 bg-wasteland-900 p-2.5 rounded border ${idx < gameState.quest.step ? 'border-emerald-600/50 text-emerald-300' : idx === gameState.quest.step ? 'border-amber-500 text-amber-300' : 'border-wasteland-700 text-wasteland-500'}">
+                    <span>${idx < gameState.quest.step ? '✅' : idx === gameState.quest.step ? '👉' : '⏳'}</span>
+                    <div>
+                        <div class="font-bold">Objective ${idx + 1}: ${obj}</div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('questStatusSummary').textContent = `Quest Step ${gameState.quest.step} / ${gameState.quest.maxStep}`;
+        }
+
+        /* ==========================================================
+           8. HUD & UTILITY HELPERS
+           ========================================================= */
+        function updateHUD() {
+            document.getElementById('statHp').textContent = `${gameState.hp}/${gameState.maxHp}`;
+            document.getElementById('statRad').textContent = `${gameState.rads} rad`;
+            document.getElementById('statCaps').textContent = gameState.caps;
+            document.getElementById('statWeight').textContent = `${gameState.weight}/${gameState.equipped.backpack.maxWeight}kg`;
+            document.getElementById('actionBudget').textContent = `Action Budget: ${gameState.actionBudget}/${gameState.maxActionBudget}`;
+
+            if (gameState.currentEncounterType === 'combat') {
+                let enc = gameState.encounterState;
+                document.getElementById('enemyNameLabel').textContent = `${enc.targetName} [HP: ${enc.targetHp}/${enc.targetMaxHp}]`;
+                let pct = (enc.targetHp / enc.targetMaxHp) * 100;
+                document.getElementById('enemyHpBar').style.width = `${Math.max(0, pct)}%`;
+            }
+        }
+
+        function logAction(msg) {
+            const logEl = document.getElementById('actionLog');
+            const entry = document.createElement('div');
+            entry.className = 'text-wasteland-300 border-t border-wasteland-800 pt-1 mt-1';
+            entry.textContent = `> ${msg}`;
+            logEl.prepend(entry);
+        }
+
+        function showToast(text, icon = "✨") {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastIcon').textContent = icon;
+            document.getElementById('toastText').textContent = text;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        function showFloatingText(text, colorClass) {
+            const wrapper = document.getElementById('boardWrapper');
+            const el = document.createElement('div');
+            el.className = `floating-text ${colorClass}`;
+            el.textContent = text;
+            el.style.left = `${Math.random() * 50 + 25}%`;
+            el.style.top = `${Math.random() * 40 + 30}%`;
+            wrapper.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+
+        function showComboPopup(combo) {
+            showFloatingText(`COMBO x${combo}! 🔥`, 'text-amber-400');
+        }
+
+        function triggerScreenShake() {
+            const ws = document.getElementById('mainWorkspace');
+            ws.classList.add('shake');
+            setTimeout(() => ws.classList.remove('shake'), 400);
+        }
+
+        function openModal(modalId) {
+            soundFX.click();
+            if (modalId === 'inventoryModal') renderInventoryModal();
+            else if (modalId === 'questModal') renderQuestModal();
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            soundFX.click();
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function triggerGameOver(isVictory) {
+            if (isVictory) {
+                soundFX.win();
+                document.getElementById('gameOverIcon').textContent = '🏆';
+                document.getElementById('gameOverTitle').textContent = 'BEACON TRANSMISSION SUCCESSFUL!';
+                document.getElementById('gameOverTitle').className = 'text-xl font-bold text-emerald-400 tracking-wider mb-2';
+                document.getElementById('gameOverDesc').textContent = 'You successfully repaired the radio beacon and transmitted the distress signal to the Last Bastion enclave!';
+            } else {
+                soundFX.gameOver();
+                document.getElementById('gameOverIcon').textContent = '💀';
+                document.getElementById('gameOverTitle').textContent = 'SURVIVOR PERISHED';
+                document.getElementById('gameOverTitle').className = 'text-xl font-bold text-red-400 tracking-wider mb-2';
+                document.getElementById('gameOverDesc').textContent = 'You succumbed to the harsh hazards and raiders of the wasteland.';
+            }
+
+            document.getElementById('runSummaryStats').innerHTML = `
+                <div>📍 Sectors Cleared: ${gameState.locationIndex + 1}</div>
+                <div>🪙 Bottle Caps: ${gameState.caps}</div>
+                <div>📅 Survival Time: Day ${gameState.day}</div>
+            `;
+            document.getElementById('gameOverModal').classList.remove('hidden');
+        }
+
+        function restartGame() {
+            soundFX.click();
+            document.getElementById('gameOverModal').classList.add('hidden');
+            gameState.hp = 100;
+            gameState.rads = 0;
+            gameState.caps = 75;
+            gameState.day = 1;
+            gameState.hour = 14;
+            gameState.actionBudget = 3;
+            gameState.locationIndex = 0;
+            gameState.quest.step = 3;
+            recalculateWeight();
+            initBoard(3);
+            updateHUD();
+            generateNextEnemyIntent();
+            showToast("Started a new survival run.", "🔄");
+        }
+
+        // Initialize on window load
+        window.onload = function() {
+            initParticles();
+            recalculateWeight();
+            initBoard(4);
+            updateHUD();
+            generateNextEnemyIntent();
+            logAction("Entered Wasteland Odyssey Enhanced. Intent & Coin harvest systems active.");
+            
+            // Animation loop for canvas particles & viewport
+            setInterval(() => {
+                drawWorldCanvas();
+            }, 50);
+
+            window.addEventListener('resize', () => drawWorldCanvas());
+        };
+    </script>
+</body>
+</html>
